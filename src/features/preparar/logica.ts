@@ -1,7 +1,8 @@
 // Lógica pura de Preparar trabajo (§10.8). Sin base de datos ni interfaz: se prueba sola (logica.test.ts).
 
 import { TIPOS_TRABAJO, type Cliente, type TipoTrabajo, type Visita } from '../../domain/tipos';
-import { claveDia, DIAS_LARGOS, desdeMadrid, diaSemanaDeClave, partesMadrid, sumarDias } from '../../lib/fechas';
+import { diaConNumero } from '../../dominio/alertas/textos';
+import { claveDia, desdeMadrid, partesMadrid, sumarDias } from '../../lib/fechas';
 import type { EstadoBloque, ItemMaterial, PlantillasMaterial, Preparacion, PrendaCalculada, PrendaPlantilla, ReservaVehiculo } from './modelo';
 
 // ---------- Visitas del día ----------
@@ -39,9 +40,7 @@ export function textoPersonas(n: number): string {
 }
 
 /** «Miércoles 14». */
-export function diaConNumero(fecha: string): string {
-  return `${DIAS_LARGOS[diaSemanaDeClave(fecha)]} ${Number(fecha.slice(8, 10))}`;
-}
+export { diaConNumero };
 
 /** «HOY», «MAÑANA», «EN 3 DÍAS» (etiqueta «PREPARAR · EN 3 DÍAS»). */
 export function antelacion(fecha: string, hoy: string): string {
@@ -98,12 +97,14 @@ export function listaMaterial(visitas: Visita[], plantillas: PlantillasMaterial,
   return r;
 }
 
+/** «a, b y c». */
+export const enumerar = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}`);
+
 /** «Lista de compra: gasolina de mezcla y sacos de restos». */
 export function textoListaCompra(items: ItemMaterial[]): string | null {
   const c = items.filter((i) => i.estado === 'comprar').map((i) => i.nombre.toLocaleLowerCase('es'));
   if (!c.length) return null;
-  const lista = c.length === 1 ? c[0] : `${c.slice(0, -1).join(', ')} y ${c.at(-1)}`;
-  return `Lista de compra: ${lista}`;
+  return `Lista de compra: ${enumerar(c)}`;
 }
 
 /** Bloque listo cuando todos los artículos están en «Lo tengo» o «Comprado» (§10.8.2). */
@@ -122,7 +123,7 @@ export function categoriaDeArticulo(nombre: string, tipo?: TipoTrabajo | null): 
   if (/planta|semilla|césped|cesped|tepe|esqueje/.test(n)) return 'plantas';
   if (/goteo|aspersor|riego|manguera|programador|tubo/.test(n)) return 'material_riego';
   if (/fitosanit|insecticida|fungicida|herbicida|tratamiento/.test(n)) return 'fitosanitarios';
-  if (/cloro|ph|flocul|algicida/.test(n)) return 'productos_piscina';
+  if (/cloro|\bph\b|flocul|algicida/.test(n)) return 'productos_piscina';
   if (/cepillo|recogehojas|filtro/.test(n) && tipo === 'piscina') return 'material_piscina';
   if (/saco|bolsa|vertedero|contenedor/.test(n)) return 'vertedero';
   if (/guante|gafa|bota|ropa|polo|gorra|protector/.test(n)) return 'ropa';

@@ -8,19 +8,23 @@ import './avisos.css';
 // el estilo de la maqueta»). Estado de la instalación y del permiso, pantalla explicativa propia ANTES del diálogo
 // del sistema (el permiso solo se pide tras un toque), «Probar notificación» y acceso a la guía.
 
-export function InstalacionAvisos({ etiquetaVolver, onVolver, onVerGuia }: { etiquetaVolver: string; onVolver: () => void; onVerGuia: () => void }) {
-  const id = useId();
+/** Permiso de notificaciones; se relee al volver a la app (se puede cambiar en los ajustes del sistema). */
+function usePermiso(): [EstadoPermiso, (p: EstadoPermiso) => void] {
   const [permiso, setPermiso] = useState<EstadoPermiso>(estadoPermiso);
-  const [mensaje, setMensaje] = useState('');
-  const [ocupado, setOcupado] = useState(false);
-  const instalada = estaInstalada();
-
   useEffect(() => {
-    // El usuario puede cambiar el permiso desde los ajustes del sistema: se relee al volver a la app.
     const releer = () => setPermiso(estadoPermiso());
     document.addEventListener('visibilitychange', releer);
     return () => document.removeEventListener('visibilitychange', releer);
   }, []);
+  return [permiso, setPermiso];
+}
+
+export function InstalacionAvisos({ etiquetaVolver, onVolver, onVerGuia }: { etiquetaVolver: string; onVolver: () => void; onVerGuia: () => void }) {
+  const id = useId();
+  const [permiso, setPermiso] = usePermiso();
+  const [mensaje, setMensaje] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const instalada = estaInstalada();
 
   const activar = async () => {
     setOcupado(true);
@@ -122,12 +126,7 @@ export function InstalacionAvisos({ etiquetaVolver, onVolver, onVerGuia }: { eti
 
 /** Banda discreta en Hoy si el permiso se denegó (§12.4): «Activa los avisos para no perderte nada». */
 export function BandaAvisos({ onIr }: { onIr: () => void }) {
-  const [permiso, setPermiso] = useState<EstadoPermiso>(estadoPermiso);
-  useEffect(() => {
-    const releer = () => setPermiso(estadoPermiso());
-    document.addEventListener('visibilitychange', releer);
-    return () => document.removeEventListener('visibilitychange', releer);
-  }, []);
+  const [permiso] = usePermiso();
   if (permiso !== 'denegado') return null;
   return (
     <button type="button" className="banda-avisos tocable" onClick={onIr}>

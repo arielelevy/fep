@@ -25,7 +25,7 @@ import { SaldoInicial } from './screens/SaldoInicial';
 import { TeDeben } from './screens/TeDeben';
 import { Alertas } from './pantallas/alertas/Alertas';
 import { PrepararTrabajo } from './features/preparar/PrepararTrabajo';
-import { Ajustes, type SubAjuste } from './features/ajustes/Ajustes';
+import { Ajustes, SUB_AJUSTES, type SubAjuste } from './features/ajustes/Ajustes';
 import { AjustesAvisos } from './features/avisos/AjustesAvisos';
 import { destinoDeUrl, type Destino } from './features/avisos/enlaces';
 import { InstalacionAvisos } from './features/avisos/InstalacionAvisos';
@@ -122,8 +122,8 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
         setPestana('movimientos');
         break;
       case 'ajustes': {
-        const validos: SubAjuste[] = ['material', 'ropa', 'proveedores', 'avisos', 'instalacion', 'exportar'];
-        setSub(d.ajuste && (validos as string[]).includes(d.ajuste) ? { ajuste: d.ajuste as SubAjuste } : 'ajustes');
+        const ajuste = SUB_AJUSTES.find((x) => x === d.ajuste);
+        setSub(ajuste ? { ajuste } : 'ajustes');
         break;
       }
     }

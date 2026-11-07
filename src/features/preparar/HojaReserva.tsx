@@ -1,39 +1,47 @@
 import { X } from 'lucide-react';
 import { useId, useState } from 'react';
-import type { Visita } from '../../../domain/tipos';
-import { centimosATexto, parsearImporte } from '../../../lib/dinero';
-import { useCerrojo } from '../../../lib/hooks';
-import { devolucionPorDefecto, diasAlquiler, recogidaPorDefecto } from '../../preparar/logica';
-import { guardarReserva } from '../../preparar/operaciones';
-import { proveedorHabitual, type ProveedorAlquiler } from '../../preparar/plantillas';
+import type { Visita } from '../../domain/tipos';
+import { centimosATexto, parsearImporte } from '../../lib/dinero';
+import { useCerrojo } from '../../lib/hooks';
+import { devolucionPorDefecto, diasAlquiler, recogidaPorDefecto } from './logica';
+import type { ReservaVehiculo } from './modelo';
+import { guardarReserva } from './operaciones';
+import { proveedorHabitual, type ProveedorAlquiler } from './plantillas';
 
-// Formulario «Ya la reservé» abierto desde la tarjeta «ALQUILA LA FURGONETA» de Alertas (§10.7: «Botón "Ya la reservé"
-// → formulario de reserva (10.8.1)»), para resolver sin salir de Alertas (§5.2.2). Mismos campos y valores por defecto
-// que el de Preparar trabajo: proveedor (el habitual preseleccionado), recogida la tarde anterior a las 19:00,
-// devolución el día del trabajo a las 20:00, precio y fianza precargados del proveedor. Guarda con `guardarReserva`
-// del encargo A, la misma escritura que usa su pantalla.
+/** Mensaje que se enseña al usuario: los de validación y permisos tal cual; el resto, el texto por defecto. */
+export const mensajeError = (e: unknown, porDefecto: string) =>
+  e instanceof Error && (e.name === 'SinPermiso' || /^(Falta|La |Importe|Fecha|Esta )/.test(e.message)) ? e.message : porDefecto;
 
-export function HojaReservaAlerta({
+/**
+ * Formulario «Ya la reservé» (hoja inferior, §10.8.1): proveedor (el habitual preseleccionado), recogida (la tarde
+ * anterior a las 19:00), devolución (el día del trabajo a las 20:00), precio y fianza prevista (precargados del
+ * proveedor si están en Ajustes). Lo usan Preparar trabajo y la tarjeta «ALQUILA LA FURGONETA» de Alertas (§10.7).
+ */
+export function HojaReserva({
   fecha,
   visitas,
+  reserva,
   proveedores,
   onCerrar,
 }: {
   fecha: string;
   /** Visitas del día que necesitan furgoneta (las que cubre la reserva). */
   visitas: Visita[];
+  /** Reserva a corregir; sin ella, reserva nueva. */
+  reserva?: ReservaVehiculo;
   proveedores: ProveedorAlquiler[];
-  onCerrar: (r?: { deshacer: () => Promise<void> }) => void;
+  onCerrar: (texto?: string, deshacer?: () => Promise<void>) => void;
 }) {
   const id = useId();
   const cerrojo = useCerrojo();
   const habitual = proveedorHabitual(proveedores);
-  const [nombre, setNombre] = useState(habitual?.nombre ?? '');
-  const [recogida, setRecogida] = useState(recogidaPorDefecto(fecha));
-  const [devolucion, setDevolucion] = useState(devolucionPorDefecto(fecha));
-  const precioInicial = habitual?.precio_dia ? habitual.precio_dia * diasAlquiler(recogidaPorDefecto(fecha), devolucionPorDefecto(fecha)) : null;
+  const [nombre, setNombre] = useState(reserva?.proveedor_nombre ?? habitual?.nombre ?? '');
+  const [recogida, setRecogida] = useState(reserva?.recogida ?? recogidaPorDefecto(fecha));
+  const [devolucion, setDevolucion] = useState(reserva?.devolucion ?? devolucionPorDefecto(fecha));
+  const precioInicial = reserva?.precio ?? (habitual?.precio_dia ? habitual.precio_dia * diasAlquiler(recogidaPorDefecto(fecha), devolucionPorDefecto(fecha)) : null);
+  const fianzaInicial = reserva?.fianza_prevista ?? habitual?.fianza_habitual ?? null;
   const [precio, setPrecio] = useState(precioInicial !== null ? centimosATexto(precioInicial) : '');
-  const [fianza, setFianza] = useState(habitual?.fianza_habitual != null ? centimosATexto(habitual.fianza_habitual) : '');
+  const [fianza, setFianza] = useState(fianzaInicial !== null ? centimosATexto(fianzaInicial) : '');
   const [error, setError] = useState('');
 
   const proveedor = proveedores.find((p) => p.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
@@ -47,21 +55,21 @@ export function HojaReservaAlerta({
     try {
       const r = await guardarReserva({
         fecha, proveedor_id: proveedor?.id ?? null, proveedor_nombre: nombre, proveedor_telefono: proveedor?.telefono ?? null,
-        recogida, devolucion, precio: p ?? 0, fianza_prevista: f ?? 0, visitas,
+        recogida, devolucion, precio: p ?? 0, fianza_prevista: f ?? 0, visitas: visitas.filter((v) => v.requiere_vehiculo),
       });
-      onCerrar(r);
+      onCerrar(reserva ? 'Reserva cambiada' : 'Furgoneta reservada', r.deshacer);
     } catch (e) {
       console.error(e);
       cerrojo.soltar();
-      setError(e instanceof Error && (e.name === 'SinPermiso' || /^(Falta|La |Importe|Fecha)/.test(e.message)) ? e.message : 'No se pudo guardar. Vuelve a intentarlo.');
+      setError(mensajeError(e, 'No se pudo guardar. Vuelve a intentarlo.'));
     }
   };
 
   return (
     <div className="capa">
-      <div className="hoja" role="dialog" aria-modal="true" aria-labelledby={`${id}-t`}>
+      <div className="hoja" role="dialog" aria-modal="true" aria-labelledby={`${id}-titulo`}>
         <header className="hoja-cabecera">
-          <h1 id={`${id}-t`}>Ya la reservé</h1>
+          <h1 id={`${id}-titulo`}>Ya la reservé</h1>
           <button type="button" className="boton-icono tocable" aria-label="Cerrar" onClick={() => onCerrar()}>
             <X size={24} aria-hidden="true" />
           </button>
@@ -70,8 +78,8 @@ export function HojaReservaAlerta({
           <div className="formulario-preparar">
             <label className="campo-preparar">
               <span>¿A quién se la alquilas?</span>
-              <input value={nombre} list={`${id}-prov`} autoComplete="off" onChange={(e) => setNombre(e.target.value)} />
-              <datalist id={`${id}-prov`}>
+              <input value={nombre} list={`${id}-proveedores`} onChange={(e) => setNombre(e.target.value)} autoComplete="off" />
+              <datalist id={`${id}-proveedores`}>
                 {proveedores.map((x) => (
                   <option key={x.id} value={x.nombre} />
                 ))}

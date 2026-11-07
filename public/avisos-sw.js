@@ -8,8 +8,9 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ventanas) => {
       for (const v of ventanas) {
         if ('focus' in v) {
-          if ('navigate' in v) v.navigate(url);
-          return v.focus();
+          // navigate() falla en ventanas que este service worker aún no controla: entonces solo se enfoca.
+          const navegada = 'navigate' in v ? v.navigate(url).catch(() => undefined) : Promise.resolve();
+          return Promise.all([navegada, v.focus()]);
         }
       }
       return self.clients.openWindow(url);

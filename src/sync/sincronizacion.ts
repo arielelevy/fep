@@ -52,7 +52,6 @@ let servidor: ServidorSync | null = null;
 export function configurarServidor(s: ServidorSync | null): void {
   servidor = s;
 }
-export const hayServidor = () => servidor !== null;
 
 export async function leerEstadoSync(): Promise<EstadoSync> {
   return { ...estadoVacio(), ...(await leerAjuste<Partial<EstadoSync>>(CLAVE_SYNC, {})) };

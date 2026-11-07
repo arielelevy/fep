@@ -23,26 +23,18 @@ export function AjustesAvisos({ etiquetaVolver, onVolver, onAbrir }: { etiquetaV
   const [error, setError] = useState('');
   const puede = Boolean(datos && !datos.esColaborador);
 
-  const guardar = async (cambios: Partial<ConfigAvisos>) => {
+  const aplicar = async (accion: () => Promise<{ deshacer: () => Promise<void> }>) => {
     setError('');
     try {
-      const r = await guardarConfigAvisos(cambios);
+      const r = await accion();
       mostrar('Ajuste guardado', r.deshacer);
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : 'No se pudo guardar. Vuelve a intentarlo.');
     }
   };
-  const guardarFurgo = async (dias: number) => {
-    setError('');
-    try {
-      const r = await guardarAvisoFurgo(dias);
-      mostrar('Ajuste guardado', r.deshacer);
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : 'No se pudo guardar. Vuelve a intentarlo.');
-    }
-  };
+  const guardar = (cambios: Partial<ConfigAvisos>) => aplicar(() => guardarConfigAvisos(cambios));
+  const guardarFurgo = (dias: number) => aplicar(() => guardarAvisoFurgo(dias));
 
   return (
     <main className="pantalla ajustes-avisos" aria-labelledby={`${id}-t`}>

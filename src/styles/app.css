@@ -1022,7 +1022,7 @@ button:disabled {
   }
 }
 
-/* ---------- Pantallas marcador y guía de instalación ---------- */
+/* ---------- Botón «volver» y guía de instalación ---------- */
 .volver {
   display: inline-flex;
   align-items: center;
@@ -1031,9 +1031,6 @@ button:disabled {
   padding: 0 6px;
   color: var(--verde-medio);
   font-weight: 700;
-}
-.marcador {
-  margin-top: 16px;
 }
 .guia {
   min-height: 100dvh;

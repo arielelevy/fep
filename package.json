@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "description": "FERGO · App de gestión (PWA). Ola 2: base de la app y registro de gastos.",
+  "description": "FERGO · App de gestión (PWA).",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

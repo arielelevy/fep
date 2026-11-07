@@ -37,22 +37,39 @@ export async function leerRegistroAvisos(): Promise<RegistroAvisos> {
   return { ...registroVacio(), ...(await leerAjuste<Partial<RegistroAvisos>>(CLAVE_AVISOS_SIMULADOS, {})) };
 }
 
-/** Registra un aviso simulado (también lo usa «Probar notificación»). */
-export async function registrarAvisoSimulado(n: Omit<Notificacion, 'marcar'>, marcar: string[] = [], ahora = new Date()): Promise<void> {
+/** Anota avisos simulados (el último de la lista queda el más reciente) y marca sus claves como avisadas. */
+async function anotarAvisos(avisos: { aviso: Omit<Notificacion, 'marcar'>; marcar: string[] }[], ahora: Date): Promise<void> {
   await db.transaction('rw', db.ajustes, async () => {
     const r = await leerRegistroAvisos();
     const iso = ahora.toISOString();
-    for (const c of marcar) r.claves[c] = iso;
-    r.enviados = [{ ...n, enviado_en: iso }, ...r.enviados].slice(0, MAXIMO_REGISTRO);
+    for (const { aviso, marcar } of avisos) {
+      for (const c of marcar) r.claves[c] = iso;
+      r.enviados.unshift({ ...aviso, enviado_en: iso });
+    }
+    r.enviados = r.enviados.slice(0, MAXIMO_REGISTRO);
     await guardarAjuste(CLAVE_AVISOS_SIMULADOS, r);
   });
 }
 
+/** Registra un aviso simulado (también lo usa «Probar notificación»). */
+export const registrarAvisoSimulado = (n: Omit<Notificacion, 'marcar'>, marcar: string[] = [], ahora = new Date()) => anotarAvisos([{ aviso: n, marcar }], ahora);
+
+let colaPlanificador: Promise<unknown> = Promise.resolve();
+
 /**
  * Ejecuta el planificador una vez: lee datos, ajustes y alertas, decide qué toca y lo «envía» (simulado).
  * Solo en el móvil del titular: Pablo no recibe avisos operativos (§3). Devuelve lo enviado.
+ * Las ejecuciones van de una en una (también entre pestañas con Web Locks): leer el registro y escribirlo no es atómico y
+ * dos a la vez (StrictMode en desarrollo, la app instalada y una pestaña del navegador) avisarían dos veces de lo mismo.
  */
-export async function ejecutarPlanificador(ahora: Date = new Date()): Promise<Notificacion[]> {
+export function ejecutarPlanificador(ahora: Date = new Date()): Promise<Notificacion[]> {
+  const tarea = () => (typeof navigator !== 'undefined' && navigator.locks ? navigator.locks.request('fergo-planificador', () => planificarYEnviar(ahora)) : planificarYEnviar(ahora));
+  const r = colaPlanificador.then(tarea, tarea);
+  colaPlanificador = r.catch(() => undefined);
+  return r;
+}
+
+async function planificarYEnviar(ahora: Date): Promise<Notificacion[]> {
   const usuario = await leerAjuste<string>('usuario_actual', '');
   if (!usuario || (await db.usuarios.get(usuario))?.rol !== 'titular') return [];
 
@@ -89,17 +106,10 @@ export async function ejecutarPlanificador(ahora: Date = new Date()): Promise<No
   if (!plan.length) return [];
 
   // Registro simulado (no se envía nada real) y marcas para no repetir.
-  await db.transaction('rw', db.ajustes, async () => {
-    const r = await leerRegistroAvisos();
-    const iso = ahora.toISOString();
-    for (const n of plan) {
-      for (const c of n.marcar.registro) r.claves[c] = iso;
-      const { marcar: _m, ...aviso } = n;
-      r.enviados.unshift({ ...aviso, enviado_en: iso });
-    }
-    r.enviados = r.enviados.slice(0, MAXIMO_REGISTRO);
-    await guardarAjuste(CLAVE_AVISOS_SIMULADOS, r);
-  });
+  await anotarAvisos(
+    plan.map(({ marcar, ...aviso }) => ({ aviso, marcar: marcar.registro })),
+    ahora,
+  );
   await marcarAvisados(plan.flatMap((n) => n.marcar.preparacion), ahora);
   const idsClima = plan.flatMap((n) => n.marcar.clima);
   if (idsClima.length) {

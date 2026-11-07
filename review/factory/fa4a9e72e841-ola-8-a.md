@@ -1,6 +1,6 @@
 # Ola 9 · Avisos, informes, exportación y auditoría de accesibilidad y modo sin conexión
 
-Objetivo: FERGO · Especificación funcional y de diseño de la app de gestión. Ola «Notificaciones, Informes y exportación» (ficha `fa4a9e72e841-ola-8-ficha.md`). Cierra la v1.
+Objetivo: FERGO · Especificación funcional y de diseño de la app de gestión. Ola «Notificaciones, Informes y exportación» (ficha [`fa4a9e72e841-ola-8-ficha.md`](fa4a9e72e841-ola-8-ficha.md)). Cierra la v1. Su QA: [`fa4a9e72e841-ola-8-qa-3.md`](fa4a9e72e841-ola-8-qa-3.md).
 
 **Maqueta.** El enlace de la maqueta (`https://claude.ai/artifact/4wpLBYXnSPahaJNptqjSJE`) no se puede abrir desde esta cuenta, y la lectura de la ola 1 (`docs/maqueta.md`) no trae Informes, Ajustes ni Avisos. Esas pantallas se construyeron con el estilo de las maquetadas, como decidió Ariel para H8, H9 y H11. Cada componente cita en un comentario qué sigue:
 - Informes: §10.9 y el estilo de «3. Movimientos».

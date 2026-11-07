@@ -5,11 +5,11 @@ import { useDatos } from '../../../db/datos';
 import type { Deshacer } from '../../../db/repo';
 import { centimosATexto, formatearEuros, parsearImporte } from '../../../lib/dinero';
 import { sumarDias, claveDia } from '../../../lib/fechas';
+import { HojaReserva } from '../../preparar/HojaReserva';
 import { aLocal, instanteLocal, listaMaterial, visitasDelDia } from '../../preparar/logica';
 import { guardarRecordatorio, marcarMaterial, registrarDevolucion, registrarRecogida } from '../../preparar/operaciones';
 import { leerPlantillas } from '../../preparar/plantillas';
 import { posponer } from './estado';
-import { HojaReservaAlerta } from './HojaReservaAlerta';
 import type { AlertaPreparacion, TarjetaDia } from './motor';
 import { useAlertasPreparacion } from './useAlertasPreparacion';
 import '../../preparar/preparar.css';
@@ -20,7 +20,7 @@ import './alertas-preparacion.css';
 //   - Avisos de la furgoneta y de la compra con su acción a un toque: «Registrar los dos» (FURGO_RECOGER),
 //     «Entera / Me descontaron / Aún no» (FURGO_DEVOLVER), «Ya lo compré / Posponer 2 h» (COMPRA_RECORDATORIO).
 //   - Tarjeta de alquiler pendiente (franja roja): «ALQUILA LA FURGONETA · EN 4 DÍAS», «Ya la reservé» abre aquí mismo el
-//     formulario de reserva (§10.8.1, HojaReservaAlerta) y «Llamar a …» si hay proveedor habitual con teléfono.
+//     formulario de reserva (§10.8.1, HojaReserva) y «Llamar a …» si hay proveedor habitual con teléfono.
 //   - «Me descontaron» pide en la misma tarjeta cuánto devolvieron (§9.6.3). Todo se resuelve sin salir de Alertas (§5.2.2).
 //   - Tarjeta de preparación por día (franja verde): «EN 3 DÍAS · 1 DE 3 LISTO», título y chips. Toque → Preparar.
 //   - Ropa para mañana sin tarjeta propia (abono normal, §10.8.4): una fila informativa con «Ver lista».
@@ -189,13 +189,13 @@ export function SeccionPreparar({ onPreparar }: { onPreparar: (fecha: string) =>
       )}
 
       {reservar && (
-        <HojaReservaAlerta
+        <HojaReserva
           fecha={reservar}
           visitas={visitasDelDia(datos.visitas, reservar).filter((v) => v.requiere_vehiculo)}
           proveedores={p.plantillas.proveedores}
-          onCerrar={(r) => {
+          onCerrar={(texto, deshacer) => {
             setReservar(null);
-            if (r) mostrar('Furgoneta reservada', r.deshacer);
+            if (texto && deshacer) mostrar(texto, deshacer);
           }}
         />
       )}

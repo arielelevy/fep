@@ -9,6 +9,9 @@ import { FilasAjustesPreparacion, type AjustePreparacion } from './plantillas/Fi
 
 export type SubAjuste = AjustePreparacion | 'avisos' | 'instalacion' | 'exportar';
 
+/** Subpantallas válidas: App las usa para validar el enlace profundo `?ir=ajustes&a=…`. */
+export const SUB_AJUSTES: readonly SubAjuste[] = ['material', 'ropa', 'proveedores', 'avisos', 'instalacion', 'exportar'];
+
 const FILAS_AVISOS: { id: SubAjuste; nombre: string; detalle: string }[] = [
   { id: 'avisos', nombre: 'Avisos y horarios', detalle: 'Resumen diario, silencio y recordatorios' },
   { id: 'instalacion', nombre: 'Instalación y avisos', detalle: 'Permiso, prueba y guía de instalación' },

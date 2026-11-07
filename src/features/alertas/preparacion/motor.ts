@@ -11,6 +11,7 @@ import {
   antelacion,
   bloques,
   diaConNumero,
+  enumerar,
   estadoFurgo,
   instanteLocal,
   listaMaterial,
@@ -20,10 +21,12 @@ import {
   personas,
   textoProgreso,
   textoTrabajos,
+  tituloDia as titulo,
   visitasDelDia,
 } from '../../preparar/logica';
 import type { ItemMaterial, PlantillasMaterial, Preparacion, PrendaPlantilla, ReservaVehiculo } from '../../preparar/modelo';
-import type { ProveedorAlquiler } from '../../preparar/plantillas';
+import { proveedorHabitual, type ProveedorAlquiler } from '../../preparar/plantillas';
+import { diasEntre } from '../../../dominio/alertas/textos';
 
 export type TipoAlertaPreparacion = 'FURGO_RESERVAR' | 'FURGO_RECOGER' | 'FURGO_DEVOLVER' | 'MATERIAL_REVISAR' | 'COMPRA_RECORDATORIO' | 'ROPA_PREPARAR';
 export type NivelPreparacion = 'info' | 'decision' | 'urgente';
@@ -107,21 +110,14 @@ export const DIAS_MATERIAL = 3;
 /** §12.2: FURGO_RESERVAR a 1 día también inmediata a las 10:00. */
 export const HORA_FURGO_URGENTE = '10:00';
 
-const diasEntre = (desde: string, hasta: string) => Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000);
 const reservaViva = (reservas: ReservaVehiculo[], fecha: string) =>
   reservas.find((r) => r.fecha === fecha && !r.eliminado_en && r.estado !== 'cancelada');
 const diaSemana = (fecha: string) => DIAS_LARGOS[diaSemanaDeClave(fecha)].toLowerCase();
-const enumerar = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}`);
 const nombreCliente = (clientes: EntradaMotor['clientes'], id: string) => clientes.find((c) => c.id === id)?.nombre ?? 'Cliente';
 
 /** «Sra. Morales» o «Sra. Morales y Urb. El Olivar» (sin repetir), para los textos de la furgoneta. */
 function clientesDe(visitas: Visita[], clientes: EntradaMotor['clientes']): string {
   return enumerar([...new Set(visitas.map((v) => nombreCliente(clientes, v.cliente_id)))]);
-}
-
-/** «Jueves 15 · Sra. Morales» o «Jueves 15 · 2 trabajos». */
-function titulo(fecha: string, visitas: Visita[], clientes: EntradaMotor['clientes']): string {
-  return visitas.length === 1 ? `${diaConNumero(fecha)} · ${nombreCliente(clientes, visitas[0].cliente_id)}` : `${diaConNumero(fecha)} · ${visitas.length} trabajos`;
 }
 
 /** Escalón de antelación de FURGO_RESERVAR (§12.2): el configurado, 3 días y 1 día. */
@@ -156,7 +152,7 @@ export function calcularAlertasPreparacion(e: EntradaMotor): SalidaMotor {
   };
   const alertas: AlertaPreparacion[] = [];
   const tarjetas: TarjetaDia[] = [];
-  const habitual = e.plantillas.proveedores.find((p) => p.habitual) ?? e.plantillas.proveedores[0];
+  const habitual = proveedorHabitual(e.plantillas.proveedores);
   const horizonte = Math.max(aviso, DIAS_TARJETA, 1);
 
   for (let d = 0; d <= horizonte; d++) {

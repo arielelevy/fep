@@ -89,6 +89,14 @@ describe('Envío simulado con la base local', () => {
     expect(await ejecutarPlanificador()).toEqual([]);
   });
 
+  it('dos ejecuciones a la vez (StrictMode, dos pestañas) no avisan dos veces de lo mismo', async () => {
+    await visitaManana();
+    vi.setSystemTime(desdeMadrid(2026, 11, 7, 21));
+    const [a, b] = await Promise.all([ejecutarPlanificador(), ejecutarPlanificador()]);
+    expect(a.length + b.length).toBe(1);
+    expect((await leerRegistroAvisos()).enviados).toHaveLength(1);
+  });
+
   it('criterio 28: sin visitas mañana ni alertas activas, no se registra ningún resumen', async () => {
     vi.setSystemTime(desdeMadrid(2026, 11, 7, 21));
     expect(await ejecutarPlanificador()).toEqual([]);
