@@ -1,0 +1,35 @@
+{
+  "name": "fergo-app",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "FERGO · App de gestión (PWA). Ola 2: base de la app y registro de gastos.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "verificar": "node scripts/verificar.mjs"
+  },
+  "dependencies": {
+    "@fontsource/plus-jakarta-sans": "5.2.5",
+    "dexie": "4.0.11",
+    "lucide-react": "0.511.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.1.6",
+    "@types/react-dom": "19.1.5",
+    "@vitejs/plugin-react": "4.5.2",
+    "fake-indexeddb": "6.0.1",
+    "jsdom": "26.1.0",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vite-plugin-pwa": "1.0.0",
+    "vitest": "3.2.4"
+  }
+}

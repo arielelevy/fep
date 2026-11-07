@@ -1,0 +1,49 @@
+/* Tokens de color de la especificación §6.1, más los dos colores de la maqueta que no eran tokens
+   (decisión de Ariel: añadirlos como tokens nuevos; docs/maqueta.md §2.1). Tema claro forzado (§6.1). */
+:root {
+  color-scheme: light;
+
+  --verde-oscuro: #12391f;
+  --verde-medio: #1f5a30;
+  --lima: #b9e33a;
+  --lima-suave: #e3f2c2;
+  --fondo: #f4f6ef;
+  --superficie: #ffffff;
+  --fondo-apagado: #eef1ea;
+  --borde: #dce3d4;
+  --texto: #15241a;
+  --texto-2: #33423a;
+  --texto-3: #56645a;
+  --ambar-fondo: #fff1c7;
+  --ambar-texto: #4d3600;
+  --ambar-punto: #d99a00;
+  --rojo-fondo: #fbe3e0;
+  --rojo: #c0392b;
+  --rojo-texto: #a12a1f;
+  --rojo-texto-fuerte: #7a1f16;
+  --verde-punto: #2e8b3e;
+  --azul-fondo: #dde9f7;
+  --azul: #1d4e89;
+  --whatsapp-burbuja: #dcf8c6;
+
+  /* Tokens nuevos tomados de la maqueta (PDF p. 1 y p. 2) */
+  --verde-oscuro-celda: #284b33; /* celdas 2 × 2 de la tarjeta de resumen */
+  --segmentado-fondo: #e1e7db; /* fondo del control segmentado de tipo */
+
+  /* Tipografía §6.2: Plus Jakarta Sans autoalojada, alternativa system-ui */
+  --fuente: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Espaciado y formas §6.3 */
+  --margen: 16px;
+  --radio-resumen: 22px;
+  --radio-tarjeta: 16px;
+  --radio-boton: 14px;
+  --radio-chip: 8px;
+  --radio-pildora: 20px;
+  --sombra-registrar: 0 4px 12px rgba(18, 57, 31, 0.25);
+  --sombra-barra: 0 6px 18px rgba(21, 36, 26, 0.28);
+
+  --duracion: 250ms;
+  --ancho-app: 430px;
+  --alto-barra: 84px;
+}
