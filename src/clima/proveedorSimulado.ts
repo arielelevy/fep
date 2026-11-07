@@ -1,13 +1,13 @@
 import { claveDia, sumarDias } from '../lib/fechas';
 import { claveHora } from './horas';
-import type { AvisoOficial, DiaClima, HoraClima, ProveedorClima, Ubicacion } from './tipos';
+import { redondear, type AvisoOficial, type DiaClima, type HoraClima, type ProveedorClima, type Ubicacion } from './tipos';
 
 // Proveedor de clima SIMULADO (§13.2: el real va tras la misma interfaz). Datos deterministas: la misma ubicación,
 // día y hora dan siempre el mismo valor, para que las pruebas y las demostraciones sean repetibles. No son
 // previsiones reales: `fuente: 'simulada'` permite que la interfaz lo indique.
 
-/** Redondeo a 2 decimales (~1 km), §11.1: se consulta una vez por punto y las coordenadas van sin datos personales (§16.5). */
-export const redondear = (u: Ubicacion): Ubicacion => ({ lat: Math.round(u.lat * 100) / 100, lon: Math.round(u.lon * 100) / 100 });
+// `redondear` vive en tipos.ts (lo usa el servicio real); se reexporta aquí para quien ya lo importaba de este módulo.
+export { redondear };
 
 /** Hash determinista de una cadena → [0, 1). */
 function azar(clave: string): number {
@@ -62,7 +62,9 @@ export function resumirDias(horas: HoraClima[]): DiaClima[] {
   const porDia = new Map<string, HoraClima[]>();
   for (const h of horas) {
     const d = h.hora.slice(0, 10);
-    porDia.set(d, [...(porDia.get(d) ?? []), h]);
+    const lista = porDia.get(d);
+    if (lista) lista.push(h);
+    else porDia.set(d, [h]);
   }
   return [...porDia.entries()].map(([fecha, hs]) => ({
     fecha,

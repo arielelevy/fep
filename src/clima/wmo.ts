@@ -17,7 +17,8 @@ export function iconoWmo(codigo: number): IconoTiempo {
   return 'nubes';
 }
 
-const TEXTOS: Record<IconoTiempo, string> = {
+/** Nombre de cada icono (etiqueta verde del semáforo y texto accesible de la franja). */
+export const NOMBRE_ICONO: Record<IconoTiempo, string> = {
   sol: 'Sol',
   sol_nubes: 'Sol y nubes',
   nubes: 'Nublado',
@@ -28,4 +29,4 @@ const TEXTOS: Record<IconoTiempo, string> = {
 };
 
 /** "Sol", "Sol y nubes", "Nublado"… */
-export const textoWmo = (codigo: number) => TEXTOS[iconoWmo(codigo)];
+export const textoWmo = (codigo: number) => NOMBRE_ICONO[iconoWmo(codigo)];

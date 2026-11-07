@@ -2,7 +2,8 @@
 // (src/clima): aquí sólo se adaptan datos de la app y se arman textos para pantalla.
 // Spec: §10.5 (Agenda), §10.6 (Detalle de visita), §11 (Clima y semáforo), §14.6 («Actualizado hace …»), §17.
 
-import type { DiaPrevision, Prevision, Semaforo, Ubicacion } from '../../clima';
+import { NOMBRE_ICONO, type DiaPrevision, type Prevision, type Semaforo, type Ubicacion } from '../../clima';
+import { hhmm, horasDeFranja, minutos } from '../../clima/horas';
 import { horaDe } from '../../domain/agenda';
 import type { Cliente, Visita } from '../../domain/tipos';
 import { claveDia, partesMadrid, sumarDias } from '../../lib/fechas';
@@ -17,11 +18,6 @@ export function ubicacionDe(cliente: Pick<Cliente, 'lat' | 'lon'> | undefined | 
   return { lat: cliente.lat, lon: cliente.lon };
 }
 
-const aMinutos = (hhmm: string) => {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-};
-
 /** Desplazamiento entre visitas (§10.7: duración más 30 minutos). */
 export const MINUTOS_DESPLAZAMIENTO = 30;
 
@@ -32,11 +28,11 @@ export const MINUTOS_DESPLAZAMIENTO = 30;
 export function huecoLibrePara(visita: Pick<Visita, 'id' | 'fecha'>, visitas: Visita[]): (inicio: string, fin: string) => boolean {
   const otras = visitas.filter((v) => v.id !== visita.id && v.fecha === visita.fecha && v.estado === 'programada' && !v.eliminado_en);
   return (inicio, fin) => {
-    const a = aMinutos(inicio);
-    const b = aMinutos(fin);
+    const a = minutos(inicio);
+    const b = minutos(fin);
     return otras.every((o) => {
-      const oa = aMinutos(horaDe(o)) - MINUTOS_DESPLAZAMIENTO;
-      const ob = aMinutos(horaDe(o)) + o.duracion + MINUTOS_DESPLAZAMIENTO;
+      const oa = minutos(horaDe(o)) - MINUTOS_DESPLAZAMIENTO;
+      const ob = minutos(horaDe(o)) + o.duracion + MINUTOS_DESPLAZAMIENTO;
       return b <= oa || a >= ob;
     });
   };
@@ -66,7 +62,7 @@ export function textoHoraActualizacion(iso: string | undefined | null, ahora: Da
   const t = new Date(iso);
   if (Number.isNaN(t.getTime())) return null;
   const p = partesMadrid(t);
-  const hora = `${String(p.hora).padStart(2, '0')}:${String(p.minuto).padStart(2, '0')}`;
+  const hora = hhmm(p.hora * 60 + p.minuto);
   const dia = claveDia(t);
   const hoy = claveDia(ahora);
   if (dia === hoy) return `Actualizado hoy a las ${hora}`;
@@ -83,16 +79,14 @@ export interface DatosFranjaVisita {
   rachas: number; // km/h máximas
 }
 
-/** Temperatura, lluvia y viento en la franja horaria de la visita (§10.6.3), o null si la previsión no la cubre. */
+/**
+ * Temperatura, lluvia y viento en la franja horaria de la visita (§10.6.3), o null si la previsión no la cubre.
+ * Usa las mismas horas que el motor (`horasDeFranja`), para que los datos cuadren con el color del semáforo.
+ */
 export function datosFranja(p: Prevision | null, visita: Pick<Visita, 'fecha' | 'hora_inicio' | 'duracion'>): DatosFranjaVisita | null {
   if (!p) return null;
-  const inicio = aMinutos(horaDe(visita));
-  const fin = inicio + Math.max(visita.duracion, 1);
-  const horas = p.horas.filter((h) => {
-    if (h.hora.slice(0, 10) !== visita.fecha) return false;
-    const m = Number(h.hora.slice(11, 13)) * 60;
-    return m + 60 > inicio && m < fin;
-  });
+  const claves = new Set(horasDeFranja(visita.fecha, visita.hora_inicio, visita.duracion));
+  const horas = p.horas.filter((h) => claves.has(h.hora));
   if (!horas.length) return null;
   const r1 = (n: number) => Math.round(n * 10) / 10;
   return {
@@ -105,16 +99,8 @@ export function datosFranja(p: Prevision | null, visita: Pick<Visita, 'fecha' | 
   };
 }
 
-/** Nombre del icono del tiempo para lectores de pantalla. */
-export const NOMBRE_ICONO: Record<NonNullable<DiaPrevision['icono']>, string> = {
-  sol: 'Sol',
-  sol_nubes: 'Sol y nubes',
-  nubes: 'Nublado',
-  niebla: 'Niebla',
-  lluvia: 'Lluvia',
-  nieve: 'Nieve',
-  tormenta: 'Tormenta',
-};
+/** Nombre del icono del tiempo para lectores de pantalla (el mismo del motor, src/clima/wmo.ts). */
+export { NOMBRE_ICONO };
 
 /** «Sol, máxima 22°, lluvia 10 %» para la etiqueta accesible del día de la franja. */
 export function textoAccesibleDia(d: DiaPrevision | undefined): string {

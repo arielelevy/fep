@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { MapPin } from 'lucide-react';
-import type { Coordenadas } from '../../geocodificacion';
+import { redondear5, type Coordenadas } from '../../geocodificacion';
 import './ubicacion.css';
 
 // Mapa pequeño con chincheta arrastrable (§10.4.3 «Ubicación»; §13.3 «mostrar la chincheta y permitir
@@ -13,7 +13,6 @@ export const ALTO_GRADOS = 0.005;
 /** Paso de las flechas del teclado (≈ 20 m). */
 export const PASO_TECLADO = 0.0002;
 
-const redondear5 = (n: number) => Math.round(n * 1e5) / 1e5;
 const limitar = (n: number, a: number, b: number) => Math.min(b, Math.max(a, n));
 
 /** «40,41680, −3,70380» (coma decimal, es-ES). */
@@ -54,6 +53,7 @@ export function MapaChincheta({
 }) {
   const plano = useRef<HTMLDivElement>(null);
   const [arrastre, setArrastre] = useState<{ x: number; y: number } | null>(null);
+  const movida = useRef(false);
   const pos = arrastre ?? posicionEnPlano(centro, punto);
   const x = limitar(pos.x, 3, 97);
   const y = limitar(pos.y, 3, 97);
@@ -71,17 +71,24 @@ export function MapaChincheta({
     } catch {
       /* sin captura (navegador viejo o puntero ya liberado): el arrastre sigue funcionando sobre la chincheta */
     }
+    movida.current = false;
     setArrastre(posicionEnPlano(centro, punto));
   };
   const alMover = (e: PointerEvent<HTMLButtonElement>) => {
     if (!arrastre) return;
     const p = posicionPuntero(e);
-    if (p) setArrastre(p);
+    if (p) {
+      movida.current = true;
+      setArrastre(p);
+    }
   };
   const alSoltar = () => {
     if (!arrastre) return;
-    const final = puntoDePosicion(centro, arrastre.x, arrastre.y);
     setArrastre(null);
+    // Un toque sin arrastrar no corrige nada (el redondeo o el borde del plano no deben guardar otro punto).
+    if (!movida.current) return;
+    movida.current = false;
+    const final = puntoDePosicion(centro, arrastre.x, arrastre.y);
     if (final.lat !== punto.lat || final.lon !== punto.lon) onMover?.(final);
   };
 

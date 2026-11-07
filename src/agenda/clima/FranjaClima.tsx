@@ -4,7 +4,7 @@ import { claveUbicacion, evaluarVisita, servicioClima, usePrevision14Dias, type 
 import type { Cliente, Visita } from '../../domain/tipos';
 import { claveDia, sumarDias } from '../../lib/fechas';
 import { visitaClima } from './LineaSemaforo';
-import { huecoLibrePara, NOMBRE_ICONO, textoAccesibleDia, TEXTO_ORIENTATIVO, ubicacionDe } from './semaforoVisita';
+import { NOMBRE_ICONO, textoAccesibleDia, TEXTO_ORIENTATIVO, ubicacionDe } from './semaforoVisita';
 import './clima.css';
 
 // Franja de 14 días de la Agenda (§10.5.2): icono del tiempo, máxima y probabilidad de lluvia por día, con la
@@ -78,20 +78,19 @@ export function useDiasConRojo(visitas: Visita[] | undefined, clientes: Cliente[
     () => (visitas ?? []).filter((v) => v.estado === 'programada' && !v.eliminado_en && v.fecha >= hoy && v.fecha <= hasta),
     [visitas, hoy, hasta],
   );
+  const porId = useMemo(() => new Map((clientes ?? []).map((c) => [c.id, c])), [clientes]);
   const firma = useMemo(() => {
-    const porId = new Map((clientes ?? []).map((c) => [c.id, c]));
     return candidatas
       .map((v) => {
         const c = porId.get(v.cliente_id);
         return `${v.id}@${v.fecha}T${v.hora_inicio ?? ''}+${v.duracion}:${v.tipos_trabajo.join(',')}:${c?.lat ?? ''},${c?.lon ?? ''}`;
       })
       .join('|');
-  }, [candidatas, clientes]);
+  }, [candidatas, porId]);
   const [rojos, setRojos] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let vivo = true;
-    const porId = new Map((clientes ?? []).map((c) => [c.id, c]));
     const grupos = new Map<string, { u: Ubicacion; vs: Visita[] }>();
     for (const v of candidatas) {
       const u = ubicacionDe(porId.get(v.cliente_id));
@@ -109,8 +108,9 @@ export function useDiasConRojo(visitas: Visita[] | undefined, clientes: Cliente[
     Promise.all(
       [...grupos.values()].map(async ({ u, vs }) => {
         const [res, avisos] = await Promise.all([s.prevision(u), s.avisos(u, hoy, hasta)]);
+        // Sólo importa el nivel: el hueco libre y el motivo gris no lo cambian.
         return vs
-          .filter((v) => evaluarVisita({ visita: visitaClima(v), ubicacion: u, prevision: res.prevision, avisos, motivoSinPrevision: res.motivo, huecoLibre: huecoLibrePara(v, candidatas) }).nivel === 'rojo')
+          .filter((v) => evaluarVisita({ visita: visitaClima(v), ubicacion: u, prevision: res.prevision, avisos }).nivel === 'rojo')
           .map((v) => v.fecha);
       }),
     )

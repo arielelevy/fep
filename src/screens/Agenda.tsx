@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Bell, Phone, Plus } from 'lucide-react';
+import { Phone, Plus } from 'lucide-react';
+import { CampanaAlertas } from '../componentes/alertas/CampanaAlertas';
 import { useDatos } from '../db/datos';
 import { materializarSeries } from '../db/repo';
 import { horaDe, textoDuracion, textoFrecuencia, visitasDelDia } from '../domain/agenda';
@@ -99,9 +100,7 @@ export function Agenda({
           <div className="subtitulo">Tiempo de los próximos 14 días</div>
         </div>
         <div className="acciones">
-          <button type="button" className="boton-icono tocable" aria-label="Alertas" onClick={onAlertas}>
-            <Bell size={22} aria-hidden="true" />
-          </button>
+          <CampanaAlertas onClick={onAlertas} />
           {datos && !esColaborador && (
             <button type="button" className="boton-icono tocable" aria-label="Nueva visita" onClick={() => onNuevaVisita(dia)}>
               <Plus size={24} aria-hidden="true" />

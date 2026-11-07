@@ -46,10 +46,16 @@ const carpetasTests = existsSync(ruta('tests'))
   : [];
 const recuento = [];
 const temporal = mkdtempSync(join(tmpdir(), 'fergo-verificar-'));
+// `correr` sale con process.exit al fallar y eso salta el finally: el temporal se borra también al salir.
+process.on('exit', () => rmSync(temporal, { recursive: true, force: true }));
 try {
   for (const c of carpetasTests) {
     if (existsSync(ruta('tests', c, 'tsconfig.json'))) correr(`tipos de tests/${c} (tsc)`, node, ['node_modules/typescript/bin/tsc', '-p', `tests/${c}`]);
-    if (!existsSync(ruta('tests', c, 'vitest.config.ts'))) continue;
+    if (!existsSync(ruta('tests', c, 'vitest.config.ts'))) {
+      // Sin configuración propia sus pruebas no correrían (vite.config.ts sólo incluye src/**): mejor fallar.
+      console.error(`✗ tests/${c}: falta vitest.config.ts, sus pruebas no se correrían`);
+      process.exit(1);
+    }
     const informe = join(temporal, `${c}.json`);
     correr(`pruebas de tests/${c} (vitest)`, node, [
       'node_modules/vitest/vitest.mjs',

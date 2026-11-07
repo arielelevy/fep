@@ -1,0 +1,318 @@
+/* Alertas (ola 7, frente B). Especificación §10.7 con el estilo de la maqueta (tokens §6.1, formas §6.3):
+   tarjetas de 16 pt de radio con franja interior de 4 pt del color de su nivel, etiqueta de sección en
+   mayúsculas, chips de 44 pt, botón principal lima de 56 pt, burbuja de WhatsApp #DCF8C6. Sin animaciones propias
+   (respeta «Reducir movimiento» con la regla global de app.css). */
+
+.insignia-alertas {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--rojo);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--fondo);
+}
+
+.alertas .subtitulo-alertas {
+  margin: 2px 0 0;
+  color: var(--texto-3);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tarjeta-alerta {
+  position: relative;
+  border-radius: var(--radio-tarjeta);
+  padding: 14px 16px 16px 20px;
+  overflow: hidden;
+  background: var(--superficie);
+  color: var(--texto);
+}
+.tarjeta-alerta + .tarjeta-alerta {
+  margin-top: 12px;
+}
+.tarjeta-alerta::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+.tarjeta-alerta[data-nivel='rojo'] {
+  background: var(--rojo-fondo);
+}
+.tarjeta-alerta[data-nivel='rojo']::before {
+  background: var(--rojo);
+}
+.tarjeta-alerta[data-nivel='ambar'] {
+  background: var(--ambar-fondo);
+}
+.tarjeta-alerta[data-nivel='ambar']::before {
+  background: var(--ambar-punto);
+}
+
+.tarjeta-alerta .linea-superior {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+.tarjeta-alerta[data-nivel='rojo'] .linea-superior {
+  color: var(--rojo-texto-fuerte);
+}
+.tarjeta-alerta[data-nivel='ambar'] .linea-superior {
+  color: var(--ambar-texto);
+}
+.tarjeta-alerta .dato-clave {
+  white-space: nowrap;
+}
+.tarjeta-alerta h3 {
+  margin: 6px 0 2px;
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+.tarjeta-alerta .detalle {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.mover {
+  margin-top: 12px;
+}
+.mover .pregunta {
+  margin: 14px 0 8px;
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.opcion {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.opcion .tiempo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+.opcion .sugerido {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--verde-medio);
+}
+.opcion[aria-checked='true'] {
+  background: var(--verde-oscuro);
+  border-color: var(--verde-oscuro);
+  color: #fff;
+}
+.opcion[aria-checked='true'] .tiempo,
+.opcion[aria-checked='true'] .sugerido {
+  color: var(--lima);
+}
+.mover .nota {
+  margin: 8px 0 0;
+  color: var(--texto-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.mover .aviso-hueco {
+  margin: 8px 0 0;
+  color: var(--rojo-texto-fuerte);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.mover .campo-otro {
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+  font: inherit;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.burbuja-whatsapp {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 12px 12px 12px 4px;
+  background: var(--whatsapp-burbuja);
+}
+.burbuja-whatsapp textarea {
+  width: 100%;
+  min-height: 88px;
+  border: 0;
+  background: transparent;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--texto);
+}
+.burbuja-whatsapp textarea:focus {
+  outline: 2px solid var(--verde-medio);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.mensaje-editado {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--texto-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.acciones-alerta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-top: 14px;
+}
+.acciones-alerta .boton-principal {
+  width: 100%;
+}
+.acciones-alerta .enlaces {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.acciones-alerta .sin-telefono {
+  margin: 4px 0 0;
+  color: var(--texto-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.filas-info {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--superficie);
+  border-radius: var(--radio-tarjeta);
+}
+.fila-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 12px 10px 16px;
+}
+.fila-info + .fila-info {
+  border-top: 1px solid var(--fondo-apagado);
+}
+.fila-info .texto {
+  flex: 1;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--texto-2);
+}
+.fila-info .texto strong {
+  color: var(--texto);
+  font-weight: 700;
+}
+.fila-info .estado {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--texto-3);
+}
+.fila-info .chip {
+  flex: none;
+}
+
+.pie-alertas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 4px 0;
+  color: var(--texto-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.solo-titular {
+  margin: 12px 0 0;
+  color: var(--texto-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Calendario de «Otro» día: 3 columnas a 375–430 px, cada día con punto de color y estado en palabras. */
+.calendario {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.dia-calendario {
+  min-height: 52px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  text-align: left;
+}
+.dia-calendario .nombre {
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+.dia-calendario .estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+.dia-calendario[aria-checked='true'] {
+  background: var(--verde-oscuro);
+  border-color: var(--verde-oscuro);
+  color: #fff;
+}
+.dia-calendario[aria-checked='true'] .estado {
+  color: #fff;
+}
+.dia-calendario:disabled {
+  background: var(--fondo-apagado);
+  color: var(--texto-3);
+}
+.dia-calendario:disabled .estado {
+  color: var(--texto-3);
+}

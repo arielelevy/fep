@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { claveDia, sumarDias } from '../lib/fechas';
 import { crearProveedorSimulado } from './proveedorSimulado';
 import { evaluarVisita } from './semaforo';
-import { almacenLocal, crearServicioClima, diasPrevision, textoActualizado, type EstadoPrevision, type ServicioClima, type DiaPrevision } from './servicio';
+import { almacenLocal, claveUbicacion, crearServicioClima, diasPrevision, textoActualizado, type EstadoPrevision, type ServicioClima, type DiaPrevision } from './servicio';
 import { UBICACION_REFERENCIA, type AvisoOficial, type Prevision, type Semaforo, type Ubicacion, type VisitaClima } from './tipos';
 
 // Hooks para las pantallas (Agenda, Hoy, Detalle de visita). Pintan al instante con lo guardado y refrescan en
@@ -64,9 +64,19 @@ export function usePrevision(ubicacion: Ubicacion | null): UsoPrevision {
     const u = { lat, lon };
     const s = servicioClima();
     const hoy = claveDia(new Date());
-    Promise.all([s.prevision(u), s.avisos(u, hoy, sumarDias(hoy, 13))]).then(([res, avisos]) => {
-      if (vivo) setR({ prevision: res.prevision, avisos, estado: res.estado, motivo: res.motivo, cargando: false, actualizado: textoActualizado(res.prevision) });
+    // Otra ubicación: no seguir mostrando la previsión del punto anterior mientras llega la nueva.
+    setR((x) => {
+      if (x.prevision && claveUbicacion(x.prevision.ubicacion) === claveUbicacion(u)) return x.cargando ? x : { ...x, cargando: true };
+      const g = s.guardada(u);
+      return { prevision: g, avisos: [], estado: g ? 'guardada' : 'sin_datos', cargando: true, actualizado: textoActualizado(g) };
     });
+    Promise.all([s.prevision(u), s.avisos(u, hoy, sumarDias(hoy, 13))])
+      .then(([res, avisos]) => {
+        if (vivo) setR({ prevision: res.prevision, avisos, estado: res.estado, motivo: res.motivo, cargando: false, actualizado: textoActualizado(res.prevision) });
+      })
+      .catch(() => {
+        if (vivo) setR((x) => ({ ...x, cargando: false, motivo: x.motivo ?? 'El servicio del tiempo no responde' }));
+      });
     return () => {
       vivo = false;
     };
@@ -82,18 +92,19 @@ export function useSemaforoVisita(
   visita: VisitaClima | null,
   ubicacion: Ubicacion | null,
   huecoLibre?: (inicio: string, fin: string) => boolean,
-): { semaforo: Semaforo | null; cargando: boolean; actualizado: string | null } {
+): { semaforo: Semaforo | null; prevision: Prevision | null; cargando: boolean; actualizado: string | null } {
   const p = usePrevision(ubicacion);
   const semaforo = useMemo(
     () =>
       visita
         ? evaluarVisita({ visita, ubicacion, prevision: p.prevision, avisos: p.avisos, motivoSinPrevision: p.motivo, huecoLibre })
         : null,
+    // huecoLibre entra: si la agenda cambia, el consejo «Empieza a las …» se recalcula con los huecos nuevos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visita?.fecha, visita?.hora_inicio, visita?.duracion, visita?.tipos_trabajo.join(','), ubicacion?.lat, ubicacion?.lon, p.prevision, p.avisos, p.motivo],
+    [visita?.fecha, visita?.hora_inicio, visita?.duracion, visita?.tipos_trabajo.join(','), ubicacion?.lat, ubicacion?.lon, p.prevision, p.avisos, p.motivo, huecoLibre],
   );
   // Mientras carga y no hay nada guardado, no se afirma «Sin conexión»: el semáforo aún no se conoce.
-  return { semaforo: p.cargando && !p.prevision ? null : semaforo, cargando: p.cargando, actualizado: p.actualizado };
+  return { semaforo: p.cargando && !p.prevision ? null : semaforo, prevision: p.prevision, cargando: p.cargando, actualizado: p.actualizado };
 }
 
 /** Franja de 14 días de la Agenda (§10.5.2), con la ubicación de referencia del negocio por defecto (§11.1). */

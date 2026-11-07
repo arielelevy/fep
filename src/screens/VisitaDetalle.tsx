@@ -180,7 +180,8 @@ export function VisitaDetalle({
         {movida && <p className="secundario">{movida}</p>}
       </section>
 
-      <SemaforoDetalle visita={v} cliente={cliente} visitas={datos.visitas} />
+      {/* Como en Agenda y Hoy: el tiempo sólo para visitas por hacer (una hecha o cancelada no se mueve por el clima). */}
+      {programada && <SemaforoDetalle visita={v} cliente={cliente} visitas={datos.visitas} />}
 
       {editable && programada && (
         <div className="acciones-visita">

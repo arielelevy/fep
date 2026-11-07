@@ -11,6 +11,11 @@ export interface Coordenadas {
   lon: number;
 }
 
+/** Coordenadas guardadas de un cliente, o null si no las tiene. */
+export function coordenadasDe(c: { lat: number | null; lon: number | null } | null | undefined): Coordenadas | null {
+  return c && c.lat !== null && c.lon !== null ? { lat: c.lat, lon: c.lon } : null;
+}
+
 export interface ResultadoGeocodificacion extends Coordenadas {
   /** Dirección tal como la entendió el proveedor ("Calle Mayor 3, Rivas-Vaciamadrid"). */
   etiqueta: string;
@@ -95,7 +100,7 @@ function hash(texto: string): number {
   return h >>> 0;
 }
 
-const redondear5 = (n: number) => Math.round(n * 1e5) / 1e5;
+export const redondear5 = (n: number) => Math.round(n * 1e5) / 1e5;
 
 /**
  * Proveedor simulado y determinista: el municipio conocido da su centro y la calle desplaza el punto hasta

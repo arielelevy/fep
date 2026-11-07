@@ -1,6 +1,5 @@
 import { DIAS_CORTOS, claveDia, diaSemanaDeClave, sumarDias } from '../lib/fechas';
-import { redondear } from './proveedorSimulado';
-import type { AvisoOficial, Prevision, ProveedorClima, Ubicacion } from './tipos';
+import { redondear, type AvisoOficial, type Prevision, type ProveedorClima, type Ubicacion } from './tipos';
 import { iconoWmo, type IconoTiempo } from './wmo';
 
 // Previsión con caché (§11.1, §14.1, §14.6): se guarda con su hora; al abrir la app, si tiene más de 3 horas y hay
@@ -26,12 +25,18 @@ export function almacenEnMemoria(): AlmacenClima {
 export function almacenLocal(prefijo = 'fergo.clima.'): AlmacenClima {
   const memoria = almacenEnMemoria();
   return {
+    // Lo ya leído queda en memoria: cada tarjeta lee su previsión y no se vuelve a parsear el JSON cada vez.
     leer(k) {
+      const enMemoria = memoria.leer(k);
+      if (enMemoria) return enMemoria;
       try {
         const t = window.localStorage.getItem(prefijo + k);
-        return t ? (JSON.parse(t) as Prevision) : memoria.leer(k);
+        if (!t) return null;
+        const p = JSON.parse(t) as Prevision;
+        memoria.guardar(k, p);
+        return p;
       } catch {
-        return memoria.leer(k);
+        return null;
       }
     },
     guardar(k, p) {
@@ -107,18 +112,25 @@ export function crearServicioClima(op: OpcionesServicio): ServicioClima {
   const ahora = op.ahora ?? (() => new Date());
   const enCurso = new Map<string, Promise<ResultadoPrevision>>();
 
+  /** Llamada al proveedor con espera máxima (la cancela si se pasa). */
+  const llamar = <T,>(f: (senal: AbortSignal) => Promise<T>): Promise<T> => {
+    const control = new AbortController();
+    return conEspera(f(control.signal), op.tiempoEsperaMs ?? TIEMPO_ESPERA_MS, control);
+  };
+
   const pedir = async (u: Ubicacion, clave: string): Promise<ResultadoPrevision> => {
     const guardada = almacen.leer(clave);
-    if (!op.proveedor) return guardada ? { prevision: guardada, estado: 'guardada', motivo: 'Sin proveedor del tiempo' } : { prevision: null, estado: 'sin_datos', motivo: 'Sin proveedor del tiempo' };
-    if (!enLinea()) return guardada ? { prevision: guardada, estado: 'guardada', motivo: 'Sin conexión' } : { prevision: null, estado: 'sin_datos', motivo: 'Sin conexión' };
+    const respaldo = (motivo: string): ResultadoPrevision =>
+      guardada ? { prevision: guardada, estado: 'guardada', motivo } : { prevision: null, estado: 'sin_datos', motivo };
+    const proveedor = op.proveedor;
+    if (!proveedor) return respaldo('Sin proveedor del tiempo');
+    if (!enLinea()) return respaldo('Sin conexión');
     try {
-      const control = new AbortController();
-      const p = await conEspera(op.proveedor.prevision(redondear(u), DIAS_PREVISION, control.signal), op.tiempoEsperaMs ?? TIEMPO_ESPERA_MS, control);
+      const p = await llamar((s) => proveedor.prevision(redondear(u), DIAS_PREVISION, s));
       almacen.guardar(clave, p);
       return { prevision: p, estado: 'fresca' };
     } catch {
-      const motivo = 'El servicio del tiempo no responde';
-      return guardada ? { prevision: guardada, estado: 'guardada', motivo } : { prevision: null, estado: 'sin_datos', motivo };
+      return respaldo('El servicio del tiempo no responde');
     }
   };
 
@@ -137,10 +149,10 @@ export function crearServicioClima(op: OpcionesServicio): ServicioClima {
       return p;
     },
     async avisos(u, desde, hasta) {
-      if (!op.proveedor?.avisos || !enLinea()) return [];
+      const proveedor = op.proveedor;
+      if (!proveedor?.avisos || !enLinea()) return [];
       try {
-        const control = new AbortController();
-        return await conEspera(op.proveedor.avisos(redondear(u), desde, hasta, control.signal), op.tiempoEsperaMs ?? TIEMPO_ESPERA_MS, control);
+        return await llamar((s) => proveedor.avisos!(redondear(u), desde, hasta, s));
       } catch {
         return [];
       }

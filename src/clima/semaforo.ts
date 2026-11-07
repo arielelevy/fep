@@ -80,6 +80,8 @@ function reglasTipo(tipo: string, ctx: Contexto): Causa | null {
   const F = ctx.franja;
   const probMax = max(F.map((h) => h.prob_precipitacion));
   const horaProbMax = F.find((h) => h.prob_precipitacion === probMax);
+  const ambarProb = (umbral: number, regla: string): Causa | null =>
+    probMax >= umbral ? { nivel: 'ambar', tipo: 'lluvia', valor: probMax, regla, hora: horaProbMax && hora(horaProbMax) } : null;
   switch (tipo) {
     case 'corte_cesped':
     case 'desbroce': {
@@ -91,8 +93,7 @@ function reglasTipo(tipo: string, ctx: Contexto): Causa | null {
       if (acumulado >= u.mmPreviasRojo) return { nivel: 'rojo', tipo: 'cesped_mojado', valor: acumulado, regla: 'cesped.rojo.mojado' };
       const parte = F.find(conLluvia);
       if (parte) return { nivel: 'ambar', tipo: 'lluvia', valor: parte.prob_precipitacion, hora: hora(parte), regla: 'cesped.ambar.lluvia' };
-      if (probMax >= u.probAmbar) return { nivel: 'ambar', tipo: 'lluvia', valor: probMax, regla: 'cesped.ambar.prob', hora: horaProbMax && hora(horaProbMax) };
-      return null;
+      return ambarProb(u.probAmbar, 'cesped.ambar.prob');
     }
     case 'setos_poda': {
       const u = UMBRALES.setos;
@@ -102,8 +103,7 @@ function reglasTipo(tipo: string, ctx: Contexto): Causa | null {
       if (viento) return { nivel: 'rojo', tipo: 'viento', valor: viento.viento, hora: hora(viento), regla: 'setos.rojo.viento' };
       const rachasA = F.find((h) => h.rachas >= u.rachasAmbar);
       if (rachasA) return { nivel: 'ambar', tipo: 'rachas', valor: max(F.map((h) => h.rachas)), hora: hora(rachasA), regla: 'setos.ambar.rachas' };
-      if (probMax >= u.probAmbar) return { nivel: 'ambar', tipo: 'lluvia', valor: probMax, regla: 'setos.ambar.prob', hora: horaProbMax && hora(horaProbMax) };
-      return null;
+      return ambarProb(u.probAmbar, 'setos.ambar.prob');
     }
     case 'fitosanitarios': {
       const u = UMBRALES.fitosanitarios;
@@ -134,13 +134,11 @@ function reglasTipo(tipo: string, ctx: Contexto): Causa | null {
       const u = UMBRALES.abonado;
       const r = causaLluvia('rojo', F, 'abonado.rojo.lluvia', (h) => h.prob_precipitacion >= u.probRojo && h.precipitacion >= u.mmRojo);
       if (r) return r;
-      if (probMax >= u.probAmbar) return { nivel: 'ambar', tipo: 'lluvia', valor: probMax, regla: 'abonado.ambar.prob', hora: horaProbMax && hora(horaProbMax) };
-      return null;
+      return ambarProb(u.probAmbar, 'abonado.ambar.prob');
     }
     case 'riego': {
       // Rojo por tormenta: lo cubre la regla común.
-      if (probMax >= UMBRALES.riego.probAmbar) return { nivel: 'ambar', tipo: 'lluvia', valor: probMax, regla: 'riego.ambar.prob', hora: horaProbMax && hora(horaProbMax) };
-      return null;
+      return ambarProb(UMBRALES.riego.probAmbar, 'riego.ambar.prob');
     }
     case 'piscina': {
       // Rojo por tormenta o aviso naranja/rojo: lo cubren las reglas comunes.
@@ -153,8 +151,7 @@ function reglasTipo(tipo: string, ctx: Contexto): Causa | null {
       const u = UMBRALES.general;
       const r = causaLluvia('rojo', F, 'general.rojo.lluvia', (h) => h.prob_precipitacion >= u.probRojo && h.precipitacion >= u.mmRojo);
       if (r) return r;
-      if (probMax >= u.probAmbar) return { nivel: 'ambar', tipo: 'lluvia', valor: probMax, regla: 'general.ambar.prob', hora: horaProbMax && hora(horaProbMax) };
-      return null;
+      return ambarProb(u.probAmbar, 'general.ambar.prob');
     }
   }
 }
@@ -188,7 +185,11 @@ function etiqueta(nivel: NivelSemaforo, c: Causa | undefined, ctx: Contexto): st
   switch (c.tipo) {
     case 'lluvia':
       if (nivel === 'rojo') texto = todasLluvia ? `Lluvia toda ${parteDelDia(hora(ctx.franja[0]))}` : `Lluvia desde las ${c.hora}`;
-      else texto = ctx.franja.some(conLluvia) ? `Lluvia a partir de las ${c.hora}` : `Posible lluvia (${c.valor}%)`;
+      else {
+        // «A partir de» es la primera hora con lluvia, no la de mayor probabilidad (las reglas *.ambar.prob).
+        const primera = ctx.franja.find(conLluvia);
+        texto = primera ? `Lluvia a partir de las ${hora(primera)}` : `Posible lluvia (${c.valor}%)`;
+      }
       break;
     case 'cesped_mojado': texto = `Césped mojado (${String(c.valor).replace('.', ',')} mm antes)`; break;
     case 'lluvia_dia': texto = `Lluvia en el día (${String(c.valor).replace('.', ',')} mm)`; break;

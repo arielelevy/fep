@@ -1,5 +1,5 @@
 import { useId, useMemo } from 'react';
-import { usePrevision, useSemaforoVisita, type Semaforo } from '../../clima';
+import { useSemaforoVisita, type Semaforo } from '../../clima';
 import type { Cliente, Visita } from '../../domain/tipos';
 import { PuntoSemaforo, visitaClima } from './LineaSemaforo';
 import { datosFranja, huecoLibrePara, textoHoraActualizacion, textoLinea, TEXTO_ORIENTATIVO, ubicacionDe, type DatosFranjaVisita } from './semaforoVisita';
@@ -83,8 +83,7 @@ export function SemaforoDetalle({ visita, cliente, visitas }: { visita: Visita; 
   const vc = useMemo(() => visitaClima(visita), [visita]);
   const ubicacion = ubicacionDe(cliente);
   const hueco = useMemo(() => huecoLibrePara(visita, visitas), [visita, visitas]);
-  const { semaforo, actualizado } = useSemaforoVisita(vc, ubicacion, hueco);
-  const { prevision } = usePrevision(ubicacion);
+  const { semaforo, prevision, actualizado } = useSemaforoVisita(vc, ubicacion, hueco);
   const datos = useMemo(() => datosFranja(prevision, visita), [prevision, visita]);
   return <SemaforoDetalleVista semaforo={semaforo} datos={datos} antiguedad={actualizado} />;
 }

@@ -6,6 +6,9 @@ export interface Ubicacion {
   lon: number;
 }
 
+/** Redondeo a 2 decimales (~1 km), §11.1: se consulta una vez por punto y las coordenadas van sin datos personales (§16.5). */
+export const redondear = (u: Ubicacion): Ubicacion => ({ lat: Math.round(u.lat * 100) / 100, lon: Math.round(u.lon * 100) / 100 });
+
 /** Centro de Madrid: ubicación de referencia de la franja de 14 días (§11.1; pregunta abierta §20.5). */
 export const UBICACION_REFERENCIA: Ubicacion = { lat: 40.42, lon: -3.7 };
 

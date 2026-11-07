@@ -8,9 +8,9 @@
 // - configurarClima({ proveedor, almacen }): enchufa el proveedor real (Open-Meteo/AEMET) sin tocar el motor.
 
 export * from './tipos';
-export { CODIGOS_TORMENTA, esTormenta, iconoWmo, textoWmo, type IconoTiempo } from './wmo';
+export { CODIGOS_TORMENTA, NOMBRE_ICONO, esTormenta, iconoWmo, textoWmo, type IconoTiempo } from './wmo';
 export { ESTADOS, MOTIVOS, UMBRALES, evaluarVisita, type EntradaSemaforo } from './semaforo';
-export { crearProveedorSimulado, horaSimulada, redondear, resumirDias, type OpcionesSimulado } from './proveedorSimulado';
+export { crearProveedorSimulado, horaSimulada, resumirDias, type OpcionesSimulado } from './proveedorSimulado';
 export {
   DIAS_PREVISION, HORAS_FRESCA, almacenEnMemoria, almacenLocal, claveUbicacion, crearServicioClima, diasPrevision, edadHoras,
   textoActualizado, type AlmacenClima, type DiaPrevision, type EstadoPrevision, type ResultadoPrevision, type ServicioClima,

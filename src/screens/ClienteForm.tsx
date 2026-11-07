@@ -8,7 +8,7 @@ import { DIAS_CORTOS, DIAS_LARGOS } from '../lib/fechas';
 import { centimosATexto, formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
 import { useCerrojo } from '../lib/hooks';
 import { UbicacionFormulario } from '../clientes/ubicacion/UbicacionCliente';
-import type { Coordenadas } from '../geocodificacion';
+import { coordenadasDe, type Coordenadas } from '../geocodificacion';
 import '../styles/clientes.css';
 
 // Formulario Nuevo / Editar cliente (§10.4.3). No tiene maqueta: hoja modal a pantalla completa con el estilo
@@ -121,9 +121,8 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
   const [error, setError] = useState('');
   const [descartar, setDescartar] = useState(false);
   // Coordenadas del cliente (§8.2): geocodificación simulada y chincheta corregible (ola 6, frente B).
-  const [coords, setCoords] = useState<Coordenadas | null>(() =>
-    cliente && cliente.lat !== null && cliente.lon !== null ? { lat: cliente.lat, lon: cliente.lon } : null,
-  );
+  const [coordsIniciales] = useState(() => coordenadasDe(cliente));
+  const [coords, setCoords] = useState<Coordenadas | null>(coordsIniciales);
   const elegirContacto = useMemo(selectorContactos, []);
 
   const poner = <K extends keyof Borrador>(clave: K, valor: Borrador[K]) => setB((x) => ({ ...x, [clave]: valor }));
@@ -150,7 +149,8 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
     (b.precio === '' || precio !== null) &&
     duracionValida;
 
-  const hayCambios = JSON.stringify(b) !== JSON.stringify(original);
+  // La chincheta corregida también cuenta como cambio (si no, cerrar la perdería sin preguntar).
+  const hayCambios = JSON.stringify(b) !== JSON.stringify(original) || coords?.lat !== coordsIniciales?.lat || coords?.lon !== coordsIniciales?.lon;
 
   const cerrar = () => (hayCambios ? setDescartar(true) : onCerrar());
 
@@ -347,7 +347,7 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
             <UbicacionFormulario
               direccion={b.direccion}
               municipio={b.municipio}
-              inicial={cliente && cliente.lat !== null && cliente.lon !== null ? { lat: cliente.lat, lon: cliente.lon } : null}
+              inicial={coordsIniciales}
               onCambio={setCoords}
             />
           </Seccion>

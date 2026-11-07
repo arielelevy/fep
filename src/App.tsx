@@ -24,6 +24,7 @@ import { Movimientos, type Filtro } from './screens/Movimientos';
 import { CLAVE_BORRADOR, Registrar, type Borrador, type TipoHoja } from './screens/Registrar';
 import { SaldoInicial } from './screens/SaldoInicial';
 import { TeDeben } from './screens/TeDeben';
+import { Alertas } from './pantallas/alertas/Alertas';
 
 // Navegación (§7): 4 pestañas + botón Registrar; pantallas de segundo nivel con la barra visible
 // (Alertas, Ajustes, Informes, Te deben, Ficha de cliente); hojas modales (Registrar, Saldo inicial,
@@ -123,7 +124,7 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
 
   let pantalla;
   if (sub === 'alertas')
-    pantalla = <Marcador titulo="Alertas" subtitulo="Tiempo y preparación de los próximos días" vacio="Todo en orden. No hay nada que decidir esta semana." texto="Las alertas del tiempo, la furgoneta y el material llegan en la próxima versión." volver={volver} />;
+    pantalla = <Alertas etiquetaVolver={NOMBRES[pestana]} onVolver={() => setSub(null)} onAbrirVisita={(id) => setSub({ visita: id })} />;
   else if (sub === 'ajustes')
     pantalla = (
       <Marcador titulo="Ajustes" vacio="Ajustes en camino" texto="Categorías, avisos y proveedores llegan en la próxima versión." volver={volver}>

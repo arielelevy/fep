@@ -6,6 +6,7 @@ import type { Cliente } from '../../domain/tipos';
 import { useEnLinea } from '../../lib/hooks';
 import {
   claveDireccion,
+  coordenadasDe,
   geocodificar,
   TEXTOS_GEOCODIFICACION,
   type Coordenadas,
@@ -62,17 +63,28 @@ export function UbicacionFormulario({
   const [punto, setPunto] = useState<Coordenadas | null>(inicial);
   /** Clave de la dirección a la que corresponden las coordenadas actuales (o la que se intentó). */
   const resuelta = useRef<string | null>(inicial ? clave : null);
+  /** Lo que se mostraba para `resuelta`: se recupera si la dirección vuelve a ella antes de buscar la nueva. */
+  const ultimo = useRef<{ estado: Estado; centro: Coordenadas | null; punto: Coordenadas | null }>({ estado: 'encontrada', centro: inicial, punto: inicial });
   const aviso = useRef(onCambio);
   aviso.current = onCambio;
 
+  const aplicar = (u: { estado: Estado; centro: Coordenadas | null; punto: Coordenadas | null }) => {
+    ultimo.current = u;
+    setEstado(u.estado);
+    setCentro(u.centro);
+    setPunto(u.punto);
+    aviso.current(u.punto);
+  };
+
   useEffect(() => {
-    if (resuelta.current === clave && estado !== 'sin_conexion' && estado !== 'error') return;
+    if (resuelta.current === clave && estado !== 'sin_conexion' && estado !== 'error') {
+      // Se escribió y se deshizo antes de la búsqueda: vuelve lo que había (sin perder las coordenadas).
+      if (estado === 'buscando') aplicar(ultimo.current);
+      return;
+    }
     if (vacia) {
       resuelta.current = clave;
-      setEstado('sin_direccion');
-      setCentro(null);
-      setPunto(null);
-      aviso.current(null);
+      aplicar({ estado: 'sin_direccion', centro: null, punto: null });
       return;
     }
     // La dirección cambió: las coordenadas viejas dejan de valer hasta encontrar las nuevas.
@@ -87,12 +99,12 @@ export function UbicacionFormulario({
         .then((r) => {
           if (control.signal.aborted) return;
           resuelta.current = clave;
-          setEstado(r.estado);
           if (r.resultado) {
             const c = { lat: r.resultado.lat, lon: r.resultado.lon };
-            setCentro(c);
-            setPunto(c);
-            aviso.current(c);
+            aplicar({ estado: r.estado, centro: c, punto: c });
+          } else {
+            setEstado(r.estado);
+            ultimo.current = { estado: r.estado, centro: null, punto: null };
           }
         })
         .catch(() => {
@@ -108,6 +120,7 @@ export function UbicacionFormulario({
   }, [clave, enLinea, retardoMs]);
 
   const mover = (c: Coordenadas) => {
+    ultimo.current = { ...ultimo.current, punto: c };
     setPunto(c);
     aviso.current(c);
   };
@@ -132,8 +145,7 @@ export function UbicacionFicha({ cliente, soloLectura }: { cliente: Cliente; sol
   const id = useId();
   const enLinea = useEnLinea();
   const { mostrar } = useDeshacer();
-  const tiene = cliente.lat !== null && cliente.lon !== null;
-  const punto = tiene ? { lat: cliente.lat!, lon: cliente.lon! } : null;
+  const punto = coordenadasDe(cliente);
   // Centro fijo mientras se corrige la chincheta, para que el plano no salte; se recoloca si cambia la dirección.
   const [centro, setCentro] = useState<{ clave: string; c: Coordenadas } | null>(punto ? { clave: claveDireccion(cliente.direccion, cliente.municipio), c: punto } : null);
   const claveActual = claveDireccion(cliente.direccion, cliente.municipio);

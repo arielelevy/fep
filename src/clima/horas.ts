@@ -1,6 +1,6 @@
 // Aritmética de horas locales de Madrid con claves "AAAA-MM-DDTHH" (sin pasar por UTC: la previsión ya viene
 // en hora local, `timezone=Europe/Madrid`, §13.2).
-import { claveDia, partesMadrid, sumarDias } from '../lib/fechas';
+import { sumarDias } from '../lib/fechas';
 
 export const HORA_POR_DEFECTO = '09:00';
 
@@ -30,10 +30,4 @@ export function horasDeFranja(fecha: string, horaInicio: string | null, duracion
   const salida: string[] = [];
   for (let h = Math.floor(ini / 60); h * 60 < fin; h++) salida.push(sumarHoras(claveHora(fecha, 0), h));
   return salida;
-}
-
-/** Clave de la hora actual en Madrid. */
-export function horaActual(ahora: Date): string {
-  const p = partesMadrid(ahora);
-  return claveHora(claveDia(ahora), p.hora);
 }

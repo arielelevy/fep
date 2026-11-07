@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Bell, Check, Clock, WifiOff } from 'lucide-react';
+import { Check, Clock, WifiOff } from 'lucide-react';
+import { CampanaAlertas } from '../componentes/alertas/CampanaAlertas';
 import { CifraAnimada } from '../components/CifraAnimada';
 import { useDeshacer } from '../components/Deshacer';
 import { Logo } from '../components/Logo';
@@ -77,9 +78,7 @@ export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
           </h1>
           <div className="fecha">{fechaLarga(ahora)}</div>
         </div>
-        <button type="button" className="boton-icono tocable" aria-label="Alertas" onClick={() => onIr('alertas')}>
-          <Bell size={22} aria-hidden="true" />
-        </button>
+        <CampanaAlertas onClick={() => onIr('alertas')} />
       </header>
 
       {!enLinea && <BandaSinConexion />}
