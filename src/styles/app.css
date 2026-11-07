@@ -636,6 +636,7 @@ button:disabled {
 }
 .chip {
   min-height: 44px;
+  min-width: 44px; /* auditoría ola 9: «Sí»/«No» quedaban en ~42 px (§5.6.1) */
   padding: 0 12px;
   border-radius: 10px;
   border: 1.5px solid var(--borde);

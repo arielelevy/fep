@@ -1,0 +1,221 @@
+/* Informes (§10.9) y Exportar datos (§15), con los tokens de §6.1 y las formas de §6.3, al estilo de «3. Movimientos»:
+   tarjetas blancas de 16 pt, títulos de tarjeta de 17 pt / 800, importes positivos en verde medio y el resto en color
+   de texto (nunca rojo). Barras hechas con divs; el valor siempre va en texto. Zonas táctiles ≥ 44 pt. Sin animaciones. */
+
+.informes > section:first-of-type {
+  margin-top: 14px;
+}
+.titulo-tarjeta-informe {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--texto);
+}
+.subtitulo-informe {
+  margin: 14px 0 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.dato-principal {
+  margin: 6px 0 10px;
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+}
+.dato-principal .positivo {
+  color: var(--verde-medio);
+}
+.dato-principal .dato-sub {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--texto-3);
+}
+.nota-informe {
+  margin: -4px 0 10px;
+}
+.vacio-informe {
+  margin: 4px 0 0;
+}
+
+/* Barras horizontales: etiqueta | pista | valor */
+.barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.barra-fila {
+  display: grid;
+  grid-template-columns: minmax(64px, 34%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.barra-etiqueta {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+.barra-detalle {
+  color: var(--texto-3);
+  font-weight: 500;
+}
+.barra-pista {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--fondo-apagado);
+  overflow: hidden;
+}
+.barra-relleno {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+}
+.barra-relleno.verde {
+  background: var(--verde-medio);
+}
+.barra-relleno.neutro {
+  background: var(--texto-3);
+}
+/* Mes en negativo: sin rojo (§9.3), contorno con rayas para distinguirlo sin depender del color. */
+.barra-relleno.negativa {
+  background: repeating-linear-gradient(135deg, var(--texto-3) 0 3px, var(--superficie) 3px 6px);
+  box-shadow: inset 0 0 0 1.5px var(--texto-3);
+}
+.barra-valor {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.selector-informe {
+  margin: 10px 0 0;
+  background: var(--fondo);
+}
+
+/* Margen por cliente */
+.lista-margen {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fila-margen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 0;
+}
+.fila-margen + .fila-margen {
+  border-top: 1px solid var(--fondo-apagado);
+}
+.margen-nombre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--texto);
+}
+.margen-detalle {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--texto-3);
+}
+.margen-valor {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--texto);
+}
+.margen-valor.positivo {
+  color: var(--verde-medio);
+}
+
+/* Pares dato / valor (alquiler y crecimiento) */
+.datos-informe {
+  margin: 0;
+}
+.dato-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 0;
+}
+.dato-fila + .dato-fila {
+  border-top: 1px solid var(--fondo-apagado);
+}
+.dato-fila dt {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+.dato-fila dd {
+  margin: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto);
+  text-align: right;
+}
+.dato-media {
+  font-weight: 600;
+  color: var(--texto-3);
+}
+
+/* Exportar datos */
+.exportar-ayuda {
+  margin: 4px 0 12px;
+}
+.exportar-rango {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.exportar-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--texto-3);
+}
+.exportar-campo input {
+  min-height: 48px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio-boton);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 600;
+}
+.exportar-boton {
+  width: 100%;
+  margin-top: 14px;
+}
+.exportar-csv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+.exportar-aviso {
+  margin: 6px 0 0;
+  min-height: 1em;
+  text-align: center;
+}

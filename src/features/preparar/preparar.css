@@ -421,10 +421,10 @@
   background: var(--superficie);
   display: grid;
   place-items: center;
-  color: var(--superficie);
 }
 .prenda[aria-checked='true'] .casilla {
   background: var(--azul);
+  color: var(--superficie);
 }
 .bloque-ropa {
   border-top: 4px solid var(--azul-fondo);

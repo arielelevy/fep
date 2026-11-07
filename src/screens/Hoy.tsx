@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Clock, WifiOff } from 'lucide-react';
 import { CampanaAlertas } from '../componentes/alertas/CampanaAlertas';
+import { BandaAvisos } from '../features/avisos/InstalacionAvisos';
 import { CifraAnimada } from '../components/CifraAnimada';
 import { useDeshacer } from '../components/Deshacer';
 import { Logo } from '../components/Logo';
@@ -40,7 +41,7 @@ import '../styles/hoy.css';
 /** Versión leída de package.json en el build (pedido de Ariel: «FERGO v<versión>» al pie de Hoy). */
 export const VERSION_APP: string = (JSON.parse(paquete) as { version: string }).version;
 
-export type DestinoHoy = 'alertas' | 'ajustes' | 'mov-fianzas' | 'mov-aportes' | 'saldo-inicial' | 'te-deben' | 'agenda' | { visita: string };
+export type DestinoHoy = { ajuste: 'instalacion' } | 'alertas' | 'ajustes' | 'mov-fianzas' | 'mov-aportes' | 'saldo-inicial' | 'te-deben' | 'agenda' | { visita: string };
 
 export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
   const datos = useDatos();
@@ -82,6 +83,8 @@ export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
       </header>
 
       {!enLinea && <BandaSinConexion />}
+      {/* §12.4: si el permiso de avisos se denegó, banda discreta con enlace a Instalación y avisos. */}
+      {datos && !datos.esColaborador && <BandaAvisos onIr={() => onIr({ ajuste: 'instalacion' })} />}
 
       {!datos || !cifras ? (
         <ResumenCargando />

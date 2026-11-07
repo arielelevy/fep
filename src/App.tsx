@@ -3,7 +3,7 @@ import { BarraInferior, type Pestana } from './components/BarraInferior';
 import { DeshacerProvider, useDeshacer } from './components/Deshacer';
 import { Dialogo } from './components/Dialogo';
 import { DatosProvider, useDatos } from './db/datos';
-import { borrarAjuste, completarVisita, leerAjuste, materializarSeries, usarComo } from './db/repo';
+import { borrarAjuste, completarVisita, leerAjuste, materializarSeries } from './db/repo';
 import { debePreguntarAbono } from './domain/abonosEsperados';
 import type { Cliente, Movimiento, Visita } from './domain/tipos';
 import { tipoCobroVisita } from './domain/visitasHoy';
@@ -17,7 +17,6 @@ import { HojaCobro } from './screens/HojaCobro';
 import { Hoy, type DestinoHoy } from './screens/Hoy';
 import { Agenda } from './screens/Agenda';
 import { HojaHecho, modoHecho } from './screens/HojaHecho';
-import { Marcador } from './screens/Marcador';
 import { VisitaDetalle } from './screens/VisitaDetalle';
 import { VisitaForm } from './screens/VisitaForm';
 import { Movimientos, type Filtro } from './screens/Movimientos';
@@ -26,7 +25,14 @@ import { SaldoInicial } from './screens/SaldoInicial';
 import { TeDeben } from './screens/TeDeben';
 import { Alertas } from './pantallas/alertas/Alertas';
 import { PrepararTrabajo } from './features/preparar/PrepararTrabajo';
-import { FilasAjustesPreparacion, type AjustePreparacion } from './features/ajustes/plantillas/FilasAjustesPreparacion';
+import { Ajustes, type SubAjuste } from './features/ajustes/Ajustes';
+import { AjustesAvisos } from './features/avisos/AjustesAvisos';
+import { destinoDeUrl, type Destino } from './features/avisos/enlaces';
+import { InstalacionAvisos } from './features/avisos/InstalacionAvisos';
+import { useAvisosSimulados } from './features/avisos/useAvisosSimulados';
+import { useSincronizacion } from './sync/useSincronizacion';
+import { Informes } from './features/informes/Informes';
+import { PantallaExportar } from './features/informes/PantallaExportar';
 import { PlantillaRopa } from './features/ajustes/plantillas/PlantillaRopa';
 import { PlantillasMaterial } from './features/ajustes/plantillas/PlantillasMaterial';
 import { Proveedores } from './features/ajustes/proveedores/Proveedores';
@@ -44,7 +50,7 @@ type Sub =
   | { cliente: string }
   | { visita: string }
   | { preparar: string; desde?: 'alertas' }
-  | { ajuste: AjustePreparacion };
+  | { ajuste: SubAjuste };
 type Hoja =
   | null
   | { tipo: 'registrar'; editar?: Movimiento; borrador?: Borrador; inicial?: { tipo: TipoHoja; clienteId?: string } }
@@ -89,6 +95,55 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
     materializarSeries(claveDia(new Date())).catch((e) => console.error('No se pudieron preparar las visitas', e));
   }, [datos?.usuario?.id]);
 
+  // Avisos en modo simulado (§12.4) y sincronización local primero (§14.3). Pablo no recibe avisos operativos (§3).
+  useAvisosSimulados(Boolean(datos?.usuario && !datos.esColaborador));
+  useSincronizacion();
+
+  // Enlace profundo (§12.1.5): una notificación abre la app en la pantalla exacta (`/?ir=…`).
+  const irA = (d: Destino) => {
+    switch (d.pantalla) {
+      case 'hoy':
+      case 'agenda':
+        setSub(null);
+        setPestana(d.pantalla);
+        break;
+      case 'alertas':
+        setSub('alertas');
+        break;
+      case 'visita':
+        setSub({ visita: d.id });
+        break;
+      case 'preparar':
+        setSub({ preparar: d.fecha, desde: 'alertas' });
+        break;
+      case 'movimientos':
+        setFiltro((x) => ({ f: d.filtro, n: x.n + 1 }));
+        setSub(null);
+        setPestana('movimientos');
+        break;
+      case 'ajustes': {
+        const validos: SubAjuste[] = ['material', 'ropa', 'proveedores', 'avisos', 'instalacion', 'exportar'];
+        setSub(d.ajuste && (validos as string[]).includes(d.ajuste) ? { ajuste: d.ajuste as SubAjuste } : 'ajustes');
+        break;
+      }
+    }
+  };
+  const abrirEnlace = (enlace: string) => {
+    if (enlace.startsWith('tel:')) {
+      window.location.href = enlace;
+      return;
+    }
+    const d = destinoDeUrl(enlace);
+    if (d) irA(d);
+  };
+  useEffect(() => {
+    const d = destinoDeUrl(window.location.href);
+    if (!d) return;
+    irA(d);
+    // Se limpia la URL para que recargar no vuelva a saltar.
+    window.history.replaceState(null, '', window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const irPestana = (p: Pestana) => {
     // §7.1: volver a tocar la pestaña activa sube al inicio.
     if (p === pestana && !sub) document.scrollingElement?.scrollTo?.({ top: 0, behavior: 'smooth' });
@@ -109,7 +164,6 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
     } else setSub(d);
   };
 
-  const volver = { etiqueta: NOMBRES[pestana], onVolver: () => setSub(null) };
   const { mostrar } = useDeshacer();
 
   // «Hecho» desde el detalle (§10.1.4): puntual con precio → hoja «¿Cobraste a …?»; si no, se marca hecha.
@@ -149,37 +203,18 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
       />
     );
   else if (sub && typeof sub === 'object' && 'ajuste' in sub) {
-    // Ajustes › Plantillas de material, Plantilla de ropa y Proveedores de alquiler (§10.10, ola 8): tercer nivel.
+    // Ajustes › subpantallas (§10.10): tercer nivel. Plantillas y proveedores (ola 8); avisos, instalación y exportar (ola 9).
     const props = { etiquetaVolver: 'Ajustes', onVolver: () => setSub('ajustes') };
-    pantalla = sub.ajuste === 'material' ? <PlantillasMaterial {...props} /> : sub.ajuste === 'ropa' ? <PlantillaRopa {...props} /> : <Proveedores {...props} />;
+    if (sub.ajuste === 'material') pantalla = <PlantillasMaterial {...props} />;
+    else if (sub.ajuste === 'ropa') pantalla = <PlantillaRopa {...props} />;
+    else if (sub.ajuste === 'proveedores') pantalla = <Proveedores {...props} />;
+    else if (sub.ajuste === 'avisos') pantalla = <AjustesAvisos {...props} onAbrir={abrirEnlace} />;
+    else if (sub.ajuste === 'instalacion') pantalla = <InstalacionAvisos {...props} onVerGuia={onVerGuia} />;
+    else pantalla = <PantallaExportar {...props} />;
   }
-  else if (sub === 'ajustes')
-    pantalla = (
-      <Marcador titulo="Ajustes" vacio="Ajustes en camino" texto="Categorías, avisos y proveedores llegan en la próxima versión." volver={volver}>
-        <h2 className="etiqueta-seccion">Quién usa este móvil</h2>
-        <div className="filas" style={{ marginTop: 0 }}>
-          <div className="fila">
-            <span className="nombre" id="etq-usuario">Usuario</span>
-            <div className="chips" role="radiogroup" aria-labelledby="etq-usuario">
-              {(datos?.usuarios ?? []).map((u) => (
-                <button key={u.id} type="button" role="radio" aria-checked={datos?.usuario?.id === u.id} className="chip tocable" onClick={() => usarComo(u.rol)}>
-                  {u.nombre}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <p className="secundario" style={{ margin: '8px 4px 0' }}>Pablo ve todo y solo puede registrar aportes y préstamos.</p>
-        <FilasAjustesPreparacion onAbrir={(a) => setSub({ ajuste: a })} />
-        <div className="filas">
-          <button type="button" className="fila tocable" onClick={onVerGuia}>
-            <span className="nombre">Guía de instalación</span>
-          </button>
-        </div>
-      </Marcador>
-    );
+  else if (sub === 'ajustes') pantalla = <Ajustes etiquetaVolver={NOMBRES[pestana]} onVolver={() => setSub(null)} onAbrir={(a) => setSub({ ajuste: a })} />;
   else if (sub === 'informes')
-    pantalla = <Marcador titulo="Informes" vacio="Informes en camino" texto="Los gráficos y la exportación a Excel llegan en la próxima versión." volver={volver} />;
+    pantalla = <Informes etiquetaVolver={NOMBRES[pestana]} onVolver={() => setSub(null)} />;
   else if (sub === 'te-deben') pantalla = <TeDeben etiquetaVolver={NOMBRES[pestana]} onVolver={() => setSub(null)} onYaPago={yaPago} />;
   else if (sub && typeof sub === 'object' && 'preparar' in sub)
     // Preparar trabajo (§10.8, ola 8): un día de trabajo; «‹» vuelve a la pantalla de origen.

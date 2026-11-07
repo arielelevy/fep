@@ -11,6 +11,7 @@ import { formatearConSigno, formatearEuros } from '../lib/dinero';
 import { claveDia, claveMes, encabezadoDia, fechaMaximaRegistro, mesConMayuscula, nombreMes, sumarMeses } from '../lib/fechas';
 import { local, useEnLinea } from '../lib/hooks';
 import { BandaSinConexion } from './Hoy';
+import { useFotosSinSubir } from '../sync/useSincronizacion';
 
 // Pantalla Movimientos (§10.3), construida contra el mockup "3. Movimientos" (PDF p. 3, docs/maqueta.md §1.3).
 // Añadido por la especificación: icono de Informes en la cabecera.
@@ -49,6 +50,7 @@ export function Movimientos({
   onInformes: () => void;
 }) {
   const datos = useDatos();
+  const fotosSinSubir = useFotosSinSubir();
   const enLinea = useEnLinea();
   const mesActual = claveMes(new Date());
   // Registrar admite fechas futuras: el selector llega hasta ese mes para poder verlas y editarlas.
@@ -176,6 +178,7 @@ export function Movimientos({
                   etiquetaAportante={aportante}
                   nombreCliente={m.cliente_id ? nombresCliente.get(m.cliente_id) : undefined}
                   fianza={fianzasPorId.get(m.fianza_id ?? m.id)}
+                  fotoSinSubir={Boolean(m.foto_id && fotosSinSubir.has(m.foto_id))}
                   onEditar={() => onEditar(m)}
                 />
               ))}
@@ -189,12 +192,12 @@ export function Movimientos({
 
 const medio = (m: Movimiento) => MEDIOS_PAGO.find((x) => x.id === m.medio_pago)?.nombre ?? '';
 
-function presentacion(m: Movimiento, c: Categoria | undefined, etiquetaAportante: string, cliente?: string, fianza?: EstadoFianza) {
+function presentacion(m: Movimiento, c: Categoria | undefined, etiquetaAportante: string, cliente?: string, fianza?: EstadoFianza, fotoSinSubir = false) {
   switch (m.tipo) {
     case 'gasto': {
       const nombre = c?.nombre_corto ?? 'Gasto';
       const titulo = m.nota || nombre;
-      const partes = ['Gasto', ...(m.nota ? [nombre] : []), medio(m), ...(cliente ? [cliente] : []), ...(m.foto_id ? ['Ticket'] : [])];
+      const partes = ['Gasto', ...(m.nota ? [nombre] : []), medio(m), ...(cliente ? [cliente] : []), ...(m.foto_id ? [fotoSinSubir ? 'Ticket sin subir' : 'Ticket'] : [])];
       return { titulo, sub: partes.join(' · '), importe: formatearEuros(-m.importe), clase: '', icono: <Icono nombre={c?.icono ?? 'Ellipsis'} size={20} />, claseIcono: '' };
     }
     case 'saldo_inicial':
@@ -229,6 +232,7 @@ function FilaMovimiento({
   etiquetaAportante,
   nombreCliente,
   fianza,
+  fotoSinSubir,
   onEditar,
 }: {
   m: Movimiento;
@@ -236,6 +240,8 @@ function FilaMovimiento({
   etiquetaAportante: string;
   nombreCliente?: string;
   fianza?: EstadoFianza;
+  /** §14.5: indicador hasta que la foto del ticket se sube. */
+  fotoSinSubir?: boolean;
   onEditar: () => void;
 }) {
   const { mostrar } = useDeshacer();
@@ -243,7 +249,7 @@ function FilaMovimiento({
   const [dx, setDx] = useState(0);
   const inicio = useRef<{ x: number; y: number } | null>(null);
   const arrastro = useRef(false);
-  const p = presentacion(m, categoria, etiquetaAportante, nombreCliente, fianza);
+  const p = presentacion(m, categoria, etiquetaAportante, nombreCliente, fianza, fotoSinSubir);
 
   const eliminar = async () => {
     try {

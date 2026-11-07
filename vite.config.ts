@@ -43,6 +43,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         navigateFallback: 'index.html',
+        // Ola 9: al tocar una notificación, abrir la app en la pantalla exacta (enlace profundo, §12.1.5).
+        importScripts: ['avisos-sw.js'],
       },
     }),
   ],
