@@ -13,10 +13,11 @@ import { centimosATexto, formatearEuros, formatearMientrasEscribe, parsearImport
 import { claveDia, etiquetaFechaCorta, fechaMaximaRegistro, instanteDeClaveDia } from '../lib/fechas';
 import { useCerrojo } from '../lib/hooks';
 import { comprimirTicket } from '../lib/imagen';
+import { ElegirCliente, RegistrarDinero, SoloLectura, tipoHojaDe } from './RegistrarDinero';
 
 // Hoja "Nuevo movimiento" (§10.2), construida contra el mockup "2. Registrar" (PDF p. 2, docs/maqueta.md §1.2).
 // Diferencias de la maqueta resueltas por la especificación: filas Fecha y Nota, chip Transferencia,
-// aria-label "Foto del ticket" en la cámara. Esta ola registra gastos; Cobro, Aporte y Fianza quedan como marcador.
+// aria-label "Foto del ticket" en la cámara. Cobro, Aporte y Fianza (ola 4) viven en RegistrarDinero.tsx.
 
 export type TipoHoja = 'gasto' | 'cobro' | 'aporte' | 'fianza';
 
@@ -37,11 +38,6 @@ const TIPOS: { id: TipoHoja; nombre: string }[] = [
   { id: 'fianza', nombre: 'Fianza' },
 ];
 
-const PROXIMAMENTE: Record<Exclude<TipoHoja, 'gasto'>, string> = {
-  cobro: 'Los cobros llegan en la próxima versión. De momento puedes registrar gastos.',
-  aporte: 'Los aportes y préstamos llegan en la próxima versión. De momento puedes registrar gastos.',
-  fianza: 'Las fianzas llegan en la próxima versión. De momento puedes registrar gastos.',
-};
 
 // Cola única para el borrador: evita que una escritura tardía lo resucite tras guardar.
 let colaBorrador: Promise<unknown> = Promise.resolve();
@@ -50,10 +46,13 @@ const encolar = (f: () => Promise<unknown>) => (colaBorrador = colaBorrador.then
 export function Registrar({
   editar,
   borrador,
+  inicial,
   onCerrar,
 }: {
   editar?: Movimiento;
   borrador?: Borrador;
+  /** Tipo y cliente precargados (p. ej. "Ya pagó" abre en Cobro con el cliente, §9.4). */
+  inicial?: { tipo: TipoHoja; clienteId?: string };
   onCerrar: () => void;
 }) {
   const datos = useDatos();
@@ -61,7 +60,7 @@ export function Registrar({
   const hoy = claveDia(new Date());
   const esSaldo = editar?.tipo === 'saldo_inicial';
 
-  const [tipo, setTipo] = useState<TipoHoja>('gasto');
+  const [tipo, setTipo] = useState<TipoHoja>(editar ? (esSaldo ? 'gasto' : tipoHojaDe(editar.tipo)) : (inicial?.tipo ?? (datos?.esColaborador ? 'aporte' : 'gasto')));
   const [textoImporte, setTextoImporte] = useState(
     editar ? centimosATexto(editar.importe) : (borrador?.textoImporte ?? ''),
   );
@@ -74,7 +73,9 @@ export function Registrar({
   const [fotoExistenteUrl, setFotoExistenteUrl] = useState<string | null>(null);
   const [verMas, setVerMas] = useState(false);
   const [confirmar, setConfirmar] = useState<null | 'descartar' | 'atipico' | 'eliminar'>(null);
-  const [infoCliente, setInfoCliente] = useState(false);
+  // Cliente imputado (§9.5): opcional en gastos; cuenta en el margen del cliente.
+  const [clienteId, setClienteId] = useState<string | null>(editar?.cliente_id ?? null);
+  const [verClientes, setVerClientes] = useState(false);
   const [error, setError] = useState('');
   const cerrojo = useCerrojo(); // evita dobles guardados con un doble toque
   const fotoGuardada = useRef<{ blob: Blob; id: string } | null>(null); // reintento sin fotos huérfanas
@@ -95,7 +96,9 @@ export function Registrar({
   const medioTocado = useRef(Boolean(editar || borrador));
   useEffect(() => {
     if (!medioTocado.current && datos) setMedio(datos.ultimoMedio);
-  }, [datos]);
+    // Pablo (colaborador) sólo registra aportes y préstamos (§3): la hoja abre en Aporte.
+    if (datos?.esColaborador && !editar && !inicial) setTipo((t) => (t === 'gasto' ? 'aporte' : t));
+  }, [datos, editar, inicial]);
 
   // Foto existente al editar.
   useEffect(() => {
@@ -125,14 +128,14 @@ export function Registrar({
 
   // Borrador (§5.1.6): se guarda en local en cada cambio de un gasto nuevo.
   useEffect(() => {
-    if (editar || cerrando.current) return;
+    if (editar || cerrando.current || tipo !== 'gasto') return;
     const hay = Boolean(textoImporte || categoriaId);
     const valor: Borrador = { textoImporte, categoriaId, fechaClave, medio, nota };
     encolar(() => {
       if (cerrando.current) return Promise.resolve();
       return hay ? guardarAjuste(CLAVE_BORRADOR, valor) : borrarAjuste(CLAVE_BORRADOR);
     });
-  }, [editar, textoImporte, categoriaId, fechaClave, medio, nota]);
+  }, [editar, tipo, textoImporte, categoriaId, fechaClave, medio, nota]);
 
   const hayDatos = Boolean(textoImporte || categoriaId || nota || foto);
   const esGasto = esSaldo || tipo === 'gasto';
@@ -183,11 +186,11 @@ export function Registrar({
       const comunes = { importe, fecha: fechaFinal(), medio_pago: medio, nota, foto_id: fotoId };
       cerrando.current = true;
       if (editar) {
-        const r = await editarMovimiento(editar.id, esSaldo ? comunes : { ...comunes, categoria_id: categoriaId });
+        const r = await editarMovimiento(editar.id, esSaldo ? comunes : { ...comunes, categoria_id: categoriaId, cliente_id: clienteId });
         onCerrar();
         mostrar(esSaldo ? 'Saldo editado' : 'Gasto editado', r.deshacer);
       } else {
-        const r = await crearMovimiento({ tipo: 'gasto', categoria_id: categoriaId, ...comunes });
+        const r = await crearMovimiento({ tipo: 'gasto', categoria_id: categoriaId, cliente_id: clienteId, ...comunes });
         onCerrar();
         mostrar('Gasto guardado', r.deshacer);
         await encolar(() => borrarAjuste(CLAVE_BORRADOR));
@@ -225,6 +228,42 @@ export function Registrar({
   const fechaFutura = fechaClave > hoy;
   const miniatura = foto?.url || fotoExistenteUrl;
 
+  const colaborador = datos?.esColaborador ?? false;
+  const segmentado = !editar && (
+    <div className="segmentado" role="radiogroup" aria-label="Tipo de movimiento">
+      {TIPOS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="radio"
+          aria-checked={tipo === t.id}
+          className="tocable"
+          disabled={colaborador && t.id !== 'aporte'}
+          onClick={() => setTipo(t.id)}
+        >
+          {t.nombre}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (colaborador && editar && (esSaldo || editar.tipo === 'gasto')) return <SoloLectura m={editar} onCerrar={onCerrar} />;
+  if (!esGasto)
+    return (
+      <RegistrarDinero
+        tipo={tipo as Exclude<TipoHoja, 'gasto'>}
+        editar={editar}
+        clienteInicial={inicial?.clienteId}
+        cabecera={segmentado}
+        compartido={{
+          textoImporte, setTextoImporte, fechaClave, setFechaClave, nota, setNota, medio,
+          setMedio: (m) => { medioTocado.current = true; setMedio(m); },
+        }}
+        onPulsarCerrar={onCerrar}
+        onCerrar={onCerrar}
+      />
+    );
+
   return (
     <div className="capa">
       <div className="hoja" role="dialog" aria-modal="true" aria-labelledby="titulo-registrar">
@@ -236,22 +275,7 @@ export function Registrar({
         </header>
 
         <div className="hoja-cuerpo">
-          {!editar && (
-            <div className="segmentado" role="radiogroup" aria-label="Tipo de movimiento">
-              {TIPOS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={tipo === t.id}
-                  className="tocable"
-                  onClick={() => setTipo(t.id)}
-                >
-                  {t.nombre}
-                </button>
-              ))}
-            </div>
-          )}
+          {segmentado}
 
           {esGasto ? (
             <>
@@ -331,14 +355,18 @@ export function Registrar({
                 {fechaFutura && <p className="aviso-fila">¿Es un gasto previsto? Lo guardo con fecha {etiquetaFechaCorta(fechaClave).toLowerCase()}.</p>}
                 {!esSaldo && (
                   <>
-                    <button type="button" className="fila tocable" onClick={() => setInfoCliente((v) => !v)} aria-expanded={infoCliente}>
+                    <button type="button" className="fila tocable" onClick={() => setVerClientes(true)}>
                       <span className="nombre">Cliente</span>
-                      <span className="valor">
-                        Opcional
+                      <span className={`valor${clienteId ? ' fuerte' : ''}`}>
+                        {datos?.clientes.find((x) => x.id === clienteId)?.nombre ?? 'Opcional'}
                         <ChevronRight size={18} aria-hidden="true" />
                       </span>
                     </button>
-                    {infoCliente && <p className="aviso-fila" style={{ color: 'var(--texto-3)' }}>Podrás asignar el gasto a un cliente cuando los clientes estén en la app.</p>}
+                    {clienteId && (
+                      <button type="button" className="boton-texto tocable" style={{ marginLeft: 8 }} onClick={() => setClienteId(null)}>
+                        Quitar cliente
+                      </button>
+                    )}
                   </>
                 )}
                 <div className="fila">
@@ -377,9 +405,7 @@ export function Registrar({
                 </div>
               )}
             </>
-          ) : (
-            <p className="texto-aclaratorio neutro">{PROXIMAMENTE[tipo as Exclude<TipoHoja, 'gasto'>]}</p>
-          )}
+          ) : null}
 
           {error && (
             <p className="aviso-error" role="alert">
@@ -407,6 +433,17 @@ export function Registrar({
         </footer>
       </div>
 
+      {verClientes && datos && (
+        <ElegirCliente
+          clientes={datos.clientes.filter((x) => x.activo)}
+          movs={datos.movimientos}
+          onElegir={(x) => {
+            setClienteId(x.id);
+            setVerClientes(false);
+          }}
+          onCerrar={() => setVerClientes(false)}
+        />
+      )}
       {verMas && datos && (
         <ListaMas
           categorias={[...cuadricula, ...resto]}
@@ -487,7 +524,7 @@ function ListaMas({
   const filtradas = categorias.filter((c) => norm(c.nombre).includes(norm(busca)));
   const grupos = [...new Set(filtradas.map((c) => c.grupo))];
   return (
-    <div className="capa" style={{ zIndex: 45 }}>
+    <div className="capa" style={{ zIndex: 56 }}>
       <div className="hoja lista-mas" role="dialog" aria-modal="true" aria-labelledby="titulo-mas">
         <header className="hoja-cabecera">
           <h2 id="titulo-mas">Categorías</h2>

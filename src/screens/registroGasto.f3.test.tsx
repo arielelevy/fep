@@ -262,7 +262,10 @@ describe('Registro de gasto: borrador (§5.1.6)', () => {
     await abrirRegistrar(user);
     await user.type(importe(), '38,50');
     await user.click(within(hoja()).getByRole('radio', { name: 'Gasolina (vehículo)' }));
-    await waitFor(async () => expect((await db.ajustes.get(CLAVE_BORRADOR))?.valor).toMatchObject({ textoImporte: '38,50' }));
+    // Esperar importe Y categoría en el borrador: con la PC cargada la categoría se escribía después del importe y
+    // la prueba cerraba la app antes (falla intermitente en la copia limpia del commit de la ola 4).
+    await waitFor(async () => expect((await db.ajustes.get(CLAVE_BORRADOR))?.valor)
+      .toMatchObject({ textoImporte: '38,50', categoriaId: expect.anything() }), { timeout: 5000 });
     unmount(); // se cierra la app sin guardar
 
     const user2 = userEvent.setup();

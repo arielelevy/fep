@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import { ChartColumn, ChevronLeft, ChevronRight, Heart, Lock } from 'lucide-react';
+import { ChartColumn, ChevronLeft, ChevronRight, Heart, Lock, X } from 'lucide-react';
 import { CifraAnimada } from '../components/CifraAnimada';
 import { Icono } from '../components/Icono';
 import { useDeshacer } from '../components/Deshacer';
 import { useDatos } from '../db/datos';
 import { eliminarMovimiento } from '../db/repo';
-import { INGRESOS_NEGOCIO, resumenMes } from '../domain/cifras';
+import { INGRESOS_NEGOCIO, fianzas as estadosFianza, resumenMes, type EstadoFianza } from '../domain/cifras';
 import { MEDIOS_PAGO, etiquetaEliminado, type Categoria, type Movimiento, type TipoMovimiento } from '../domain/tipos';
 import { formatearConSigno, formatearEuros } from '../lib/dinero';
 import { claveDia, claveMes, encabezadoDia, fechaMaximaRegistro, mesConMayuscula, nombreMes, sumarMeses } from '../lib/fechas';
@@ -37,7 +37,12 @@ export function Movimientos({
   onEditar,
   onRegistrar,
   onInformes,
+  clienteId,
+  onQuitarCliente,
 }: {
+  /** Movimientos de un cliente ("Ver movimientos" de la ficha, §10.4.2.8). */
+  clienteId?: string;
+  onQuitarCliente?: () => void;
   filtroInicial?: Filtro;
   onEditar: (m: Movimiento) => void;
   onRegistrar: () => void;
@@ -60,7 +65,7 @@ export function Movimientos({
   const { delMes, porDia } = useMemo(() => {
     const tipos = FILTROS.find((f) => f.id === filtro)!.tipos;
     const delMes = (movimientos ?? [])
-      .filter((m) => claveMes(m.fecha) === mes && (!tipos || tipos.includes(m.tipo)))
+      .filter((m) => claveMes(m.fecha) === mes && (!tipos || tipos.includes(m.tipo)) && (!clienteId || m.cliente_id === clienteId))
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado_en.localeCompare(a.creado_en));
     const porDia = new Map<string, Movimiento[]>();
     for (const m of delMes) {
@@ -70,7 +75,10 @@ export function Movimientos({
       else porDia.set(k, [m]);
     }
     return { delMes, porDia };
-  }, [movimientos, mes, filtro]);
+  }, [movimientos, mes, filtro, clienteId]);
+  const fianzasPorId = useMemo(() => new Map(estadosFianza(movimientos ?? []).map((f) => [f.entrega.id, f])), [movimientos]);
+  const nombresCliente = useMemo(() => new Map((datos?.clientes ?? []).map((c) => [c.id, c.nombre])), [datos?.clientes]);
+  const clienteFiltro = clienteId ? nombresCliente.get(clienteId) : undefined;
   const resumen = useMemo(() => (movimientos ? resumenMes(movimientos, mes) : null), [movimientos, mes]);
   const categorias = useMemo(() => new Map((datos?.categorias ?? []).map((c) => [c.id, c])), [datos?.categorias]);
 
@@ -125,6 +133,13 @@ export function Movimientos({
         )}
       </div>
 
+      {clienteId && (
+        <div className="chips-fila" style={{ marginTop: 12 }}>
+          <button type="button" className="chip tocable" aria-checked="true" role="switch" onClick={onQuitarCliente} aria-label={`Quitar filtro de cliente: ${clienteFiltro ?? ''}`}>
+            Solo {clienteFiltro ?? 'este cliente'} <X size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       <div className="filtros" role="radiogroup" aria-label="Filtrar movimientos">
         {FILTROS.map((f) => (
           <button key={f.id} type="button" role="radio" aria-checked={filtro === f.id} className="pildora tocable" onClick={() => setFiltro(f.id)}>
@@ -157,7 +172,9 @@ export function Movimientos({
                   key={m.id}
                   m={m}
                   categoria={m.categoria_id ? categorias.get(m.categoria_id) : undefined}
-                  etiquetaAportante={datos.usuario?.etiqueta_aportante ?? 'papá'}
+                  etiquetaAportante={datos.usuarios.find((u) => u.rol === 'colaborador')?.etiqueta_aportante ?? 'papá'}
+                  nombreCliente={m.cliente_id ? nombresCliente.get(m.cliente_id) : undefined}
+                  fianza={fianzasPorId.get(m.fianza_id ?? m.id)}
                   onEditar={() => onEditar(m)}
                 />
               ))}
@@ -171,25 +188,36 @@ export function Movimientos({
 
 const medio = (m: Movimiento) => MEDIOS_PAGO.find((x) => x.id === m.medio_pago)?.nombre ?? '';
 
-function presentacion(m: Movimiento, c: Categoria | undefined, etiquetaAportante: string) {
+function presentacion(m: Movimiento, c: Categoria | undefined, etiquetaAportante: string, cliente?: string, fianza?: EstadoFianza) {
   switch (m.tipo) {
     case 'gasto': {
       const nombre = c?.nombre_corto ?? 'Gasto';
       const titulo = m.nota || nombre;
-      const partes = ['Gasto', ...(m.nota ? [nombre] : []), medio(m), ...(m.foto_id ? ['Ticket'] : [])];
+      const partes = ['Gasto', ...(m.nota ? [nombre] : []), medio(m), ...(cliente ? [cliente] : []), ...(m.foto_id ? ['Ticket'] : [])];
       return { titulo, sub: partes.join(' · '), importe: formatearEuros(-m.importe), clase: '', icono: <Icono nombre={c?.icono ?? 'Ellipsis'} size={20} />, claseIcono: '' };
     }
     case 'saldo_inicial':
       return { titulo: 'Saldo inicial', sub: `Dinero al empezar · ${m.medio_pago === 'efectivo' ? 'Efectivo' : 'Banco'}`, importe: formatearConSigno(m.importe), clase: '', icono: <Icono nombre="Wallet" size={20} />, claseIcono: '' };
     case 'aporte':
     case 'prestamo':
-    case 'devolucion_prestamo':
-      return { titulo: `Aporte de ${etiquetaAportante}`, chip: { texto: 'No cuenta como ganancia', clase: 'azul' }, importe: formatearConSigno(m.importe), clase: 'azul', icono: <Heart size={20} aria-hidden="true" />, claseIcono: 'aporte' };
-    case 'fianza_entregada':
+    case 'devolucion_prestamo': {
+      const titulo = m.tipo === 'aporte' ? `Aporte de ${etiquetaAportante}` : m.tipo === 'prestamo' ? `Préstamo de ${etiquetaAportante}` : `Devolución a ${etiquetaAportante}`;
+      const importe = m.tipo === 'devolucion_prestamo' ? formatearEuros(-m.importe) : formatearConSigno(m.importe);
+      return { titulo, chip: { texto: 'No cuenta como ganancia', clase: 'azul' }, importe, clase: 'azul', icono: <Heart size={20} aria-hidden="true" />, claseIcono: 'aporte' };
+    }
+    case 'fianza_entregada': {
+      const motivo = (m.fianza?.motivo || 'furgoneta').toLowerCase();
+      const chip = !fianza || fianza.estado === 'pendiente'
+        ? { texto: 'Pendiente de devolver', clase: 'ambar' }
+        : { texto: fianza.estado === 'devuelta' ? 'Devuelta' : 'Devuelta con descuento', clase: 'neutro' };
+      return { titulo: `Fianza ${motivo}`, chip, importe: formatearEuros(m.importe), clase: 'gris', icono: <Lock size={20} aria-hidden="true" />, claseIcono: 'fianza' };
+    }
     case 'fianza_devuelta':
-      return { titulo: `Fianza ${m.nota || 'furgoneta'}`.trim(), chip: { texto: 'Pendiente de devolver', clase: 'ambar' }, importe: formatearEuros(m.importe), clase: 'gris', icono: <Lock size={20} aria-hidden="true" />, claseIcono: 'fianza' };
-    default:
-      return { titulo: m.nota || 'Cobro', sub: `Cobro · ${medio(m)}`, importe: formatearConSigno(m.importe), clase: 'positivo', icono: <Icono nombre="ArrowUp" size={20} />, claseIcono: 'cobro' };
+      return { titulo: 'Fianza devuelta', sub: `Fianza · ${medio(m)}`, importe: formatearEuros(m.importe), clase: 'gris', icono: <Lock size={20} aria-hidden="true" />, claseIcono: 'fianza' };
+    default: {
+      const tipo = m.tipo === 'anticipo' ? 'Anticipo' : m.tipo === 'otro_ingreso' ? 'Otro ingreso' : m.periodo_abono ? `Abono ${nombreMes(m.periodo_abono)}` : 'Cobro';
+      return { titulo: cliente || m.nota || 'Cobro', sub: `${tipo} · ${medio(m)}`, importe: formatearConSigno(m.importe), clase: 'positivo', icono: <Icono nombre="ArrowUp" size={20} />, claseIcono: 'cobro' };
+    }
   }
 }
 
@@ -198,11 +226,15 @@ function FilaMovimiento({
   m,
   categoria,
   etiquetaAportante,
+  nombreCliente,
+  fianza,
   onEditar,
 }: {
   m: Movimiento;
   categoria?: Categoria;
   etiquetaAportante: string;
+  nombreCliente?: string;
+  fianza?: EstadoFianza;
   onEditar: () => void;
 }) {
   const { mostrar } = useDeshacer();
@@ -210,7 +242,7 @@ function FilaMovimiento({
   const [dx, setDx] = useState(0);
   const inicio = useRef<{ x: number; y: number } | null>(null);
   const arrastro = useRef(false);
-  const p = presentacion(m, categoria, etiquetaAportante);
+  const p = presentacion(m, categoria, etiquetaAportante, nombreCliente, fianza);
 
   const eliminar = async () => {
     try {

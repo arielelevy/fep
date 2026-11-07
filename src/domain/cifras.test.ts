@@ -35,7 +35,7 @@ describe('En caja (§9.3)', () => {
   });
 
   it('cuenta aportes, préstamos y fianzas según §9.1', () => {
-    const movs = [mov('aporte', 50000), mov('prestamo', 30000), mov('devolucion_prestamo', 10000), mov('fianza_entregada', 15000), mov('fianza_devuelta', 12000)];
+    const movs = [mov('aporte', 50000), mov('prestamo', 30000), mov('devolucion_prestamo', 10000), mov('fianza_entregada', 15000, { id: 'f1' }), mov('fianza_devuelta', 12000, { fianza_id: 'f1' })];
     expect(calcularEnCaja(movs)).toBe(50000 + 30000 - 10000 - 15000 + 12000);
     expect(calcularAportes(movs)).toBe(50000);
     expect(calcularEnFianzas(movs)).toBe(3000);

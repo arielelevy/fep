@@ -10,7 +10,9 @@ export const INGRESOS_NEGOCIO: TipoMovimiento[] = ['cobro', 'anticipo', 'otro_in
 export const activos = (movs: Movimiento[]) => movs.filter((m) => !m.eliminado_en);
 
 /** Efecto en "En caja" de un movimiento (positivo entra, negativo sale). */
-export function efectoEnCaja(m: Pick<Movimiento, 'tipo' | 'importe'>): number {
+export function efectoEnCaja(m: Pick<Movimiento, 'tipo' | 'importe'> & { fianza_id?: string | null }): number {
+  // El descuento de una fianza (§9.1) ya salió de caja al entregarla: sólo resta en Ganado.
+  if (m.tipo === 'gasto' && m.fianza_id) return 0;
   if (ENTRADAS.includes(m.tipo)) return m.importe;
   if (SALIDAS.includes(m.tipo)) return -m.importe;
   return 0;
@@ -69,15 +71,58 @@ export function calcularAportes(movs: Movimiento[]): number {
   return activos(movs).filter((m) => m.tipo === 'aporte').reduce((s, m) => s + m.importe, 0);
 }
 
-/**
- * "En fianzas" (§9.3). En esta ola aún no hay entidad Fianza: se aproxima con los movimientos
- * de fianza entregada menos devuelta. Se sustituirá por el estado de cada fianza al construir Fianzas.
- */
-export function calcularEnFianzas(movs: Movimiento[]): number {
+/** Estado de una fianza (§8.8, §9.6). La fianza es su movimiento de entrega; el estado sale de los movimientos. */
+export interface EstadoFianza {
+  entrega: Movimiento;
+  devuelto: number;
+  descontado: number;
+  estado: 'pendiente' | 'devuelta' | 'devuelta_parcial';
+}
+
+export function fianzas(movs: Movimiento[]): EstadoFianza[] {
   const a = activos(movs);
-  const entregadas = a.filter((m) => m.tipo === 'fianza_entregada').reduce((s, m) => s + m.importe, 0);
-  const devueltas = a.filter((m) => m.tipo === 'fianza_devuelta').reduce((s, m) => s + m.importe, 0);
-  return Math.max(0, entregadas - devueltas);
+  return a
+    .filter((m) => m.tipo === 'fianza_entregada')
+    .map((entrega) => {
+      const devuelto = a.filter((m) => m.tipo === 'fianza_devuelta' && m.fianza_id === entrega.id).reduce((s, m) => s + m.importe, 0);
+      const descontado = a.filter((m) => m.tipo === 'gasto' && m.fianza_id === entrega.id).reduce((s, m) => s + m.importe, 0);
+      const resuelto = devuelto + descontado >= entrega.importe;
+      return { entrega, devuelto, descontado, estado: !resuelto ? 'pendiente' : descontado > 0 ? 'devuelta_parcial' : 'devuelta' };
+    });
+}
+
+/** "En fianzas" (§9.3): lo entregado que aún no se ha resuelto (ni devuelto ni descontado). */
+export function calcularEnFianzas(movs: Movimiento[]): number {
+  return fianzas(movs).reduce((s, f) => s + Math.max(0, f.entrega.importe - f.devuelto - f.descontado), 0);
+}
+
+/** Préstamos de Pablo (§8.9): cada movimiento de préstamo es un préstamo; lo devuelto sale de sus devoluciones. */
+export function prestamos(movs: Movimiento[]): { prestamo: Movimiento; devuelto: number; pendiente: number }[] {
+  const a = activos(movs);
+  return a
+    .filter((m) => m.tipo === 'prestamo')
+    .sort((x, y) => x.fecha.localeCompare(y.fecha))
+    .map((prestamo) => {
+      const devuelto = a.filter((m) => m.tipo === 'devolucion_prestamo' && m.prestamo_id === prestamo.id).reduce((s, m) => s + m.importe, 0);
+      return { prestamo, devuelto, pendiente: Math.max(0, prestamo.importe - devuelto) };
+    });
+}
+
+/** "Préstamo pendiente" / "Le debes a papá" (§9.1, §9.3). */
+export function calcularPrestamoPendiente(movs: Movimiento[]): number {
+  return prestamos(movs).reduce((s, p) => s + p.pendiente, 0);
+}
+
+/** Margen por cliente (§9.5): cobros del cliente − gastos imputados al cliente, en un periodo. */
+export function margenCliente(movs: Movimiento[], clienteId: string, desde: string, hasta: string): { cobrado: number; gastado: number; margen: number } {
+  let cobrado = 0;
+  let gastado = 0;
+  for (const m of activos(movs)) {
+    if (m.cliente_id !== clienteId || m.fecha < desde || m.fecha >= hasta) continue;
+    if (INGRESOS_NEGOCIO.includes(m.tipo)) cobrado += m.importe;
+    else if (m.tipo === 'gasto') gastado += m.importe;
+  }
+  return { cobrado, gastado, margen: cobrado - gastado };
 }
 
 /**

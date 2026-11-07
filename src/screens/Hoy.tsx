@@ -3,8 +3,9 @@ import { Bell, Check, WifiOff } from 'lucide-react';
 import { CifraAnimada } from '../components/CifraAnimada';
 import { Logo } from '../components/Logo';
 import { useDatos } from '../db/datos';
-import { guardarAjuste } from '../db/repo';
-import { calcularAportes, calcularEnCaja, calcularEnFianzas, calcularGanado, desgloseEnCaja } from '../domain/cifras';
+import { alternarPaso } from '../db/repo';
+import { calcularAportes, calcularEnCaja, calcularEnFianzas, calcularGanado, calcularPrestamoPendiente, desgloseEnCaja } from '../domain/cifras';
+import { calcularPendientes, totalPendiente } from '../domain/pendientes';
 import { formatearConSigno, formatearEuros } from '../lib/dinero';
 import { claveMes, fechaLarga, nombreMes } from '../lib/fechas';
 import { useEnLinea } from '../lib/hooks';
@@ -13,7 +14,7 @@ import { useEnLinea } from '../lib/hooks';
 // Añadido por la especificación: campana de Alertas en la cabecera. En esta ola no hay visitas, cobros
 // ni aviso contextual: la sección de visitas muestra su estado Vacío.
 
-export type DestinoHoy = 'alertas' | 'ajustes' | 'mov-fianzas' | 'mov-aportes' | 'saldo-inicial';
+export type DestinoHoy = 'alertas' | 'ajustes' | 'mov-fianzas' | 'mov-aportes' | 'saldo-inicial' | 'te-deben';
 
 export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
   const datos = useDatos();
@@ -31,8 +32,11 @@ export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
         ganado: calcularGanado(movimientos, mes),
         fianzas: calcularEnFianzas(movimientos),
         aportes: calcularAportes(movimientos),
+        prestamo: calcularPrestamoPendiente(movimientos),
+        teDeben: totalPendiente(calcularPendientes(datos!.clientes, datos!.deudas, movimientos)),
       },
-    [movimientos, mes],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [movimientos, datos?.clientes, datos?.deudas, mes],
   );
 
   return (
@@ -62,7 +66,7 @@ export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
           verDesglose={verDesglose}
           onDesglose={() => setVerDesglose((v) => !v)}
           mes={nombreMes(mes)}
-          etiquetaAportante={datos.usuario?.etiqueta_aportante ?? 'papá'}
+          etiquetaAportante={datos.usuarios.find((u) => u.rol === 'colaborador')?.etiqueta_aportante ?? 'papá'}
           onIr={onIr}
         />
       )}
@@ -118,6 +122,8 @@ function Resumen(p: {
   mes: string;
   fianzas: number;
   aportes: number;
+  prestamo: number;
+  teDeben: number;
   etiquetaAportante: string;
   onIr: (d: DestinoHoy) => void;
 }) {
@@ -143,10 +149,10 @@ function Resumen(p: {
             testId="ganado"
           />
         </div>
-        <div className="celda">
+        <button type="button" className="celda tocable" onClick={() => p.onIr('te-deben')}>
           <span className="etiqueta">Te deben</span>
-          <span className="valor">{formatearEuros(0)}</span>
-        </div>
+          <CifraAnimada valor={p.teDeben} formato={formatearEuros} className="valor" testId="te-deben" />
+        </button>
         <button type="button" className="celda tocable" onClick={() => p.onIr('mov-fianzas')}>
           <span className="etiqueta">En fianzas</span>
           <CifraAnimada valor={p.fianzas} formato={formatearEuros} className="valor" testId="fianzas" />
@@ -154,6 +160,7 @@ function Resumen(p: {
         <button type="button" className="celda tocable" onClick={() => p.onIr('mov-aportes')}>
           <span className="etiqueta">Aportes de {p.etiquetaAportante}</span>
           <CifraAnimada valor={p.aportes} formato={formatearEuros} className="valor" testId="aportes" />
+          {p.prestamo > 0 && <span className="sub">Préstamo pendiente: {formatearEuros(p.prestamo)}</span>}
         </button>
       </div>
     </section>
@@ -163,9 +170,11 @@ function Resumen(p: {
 // Primer uso (§10.1.3): tarjeta de bienvenida con tres pasos marcables. Desaparece al completarlos.
 function Bienvenida({ onIr }: { onIr: (d: DestinoHoy) => void }) {
   const datos = useDatos()!;
-  const { saldoInicialHecho, pasos } = datos;
-  if (saldoInicialHecho && pasos.cliente && pasos.avisos) return null;
-  const marcar = (paso: 'cliente' | 'avisos') => guardarAjuste('pasos_bienvenida', { ...pasos, [paso]: !pasos[paso] });
+  const { saldoInicialHecho, esColaborador } = datos;
+  // El paso del cliente se completa solo al dar de alta el primero (ola 4); se puede seguir marcando a mano.
+  const pasos = { ...datos.pasos, cliente: datos.pasos.cliente || datos.clientes.length > 0 };
+  if (esColaborador || (saldoInicialHecho && pasos.cliente && pasos.avisos)) return null;
+  const marcar = (paso: 'cliente' | 'avisos') => alternarPaso(paso);
   return (
     <section className="tarjeta bienvenida" aria-labelledby="titulo-bienvenida">
       <h2 id="titulo-bienvenida">Para empezar</h2>

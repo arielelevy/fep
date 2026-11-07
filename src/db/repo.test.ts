@@ -14,8 +14,10 @@ beforeEach(async () => {
 describe('capa de datos local (IndexedDB)', () => {
   it('siembra usuario titular y categorías iniciales', async () => {
     const usuarios = await db.usuarios.toArray();
-    expect(usuarios).toHaveLength(1);
-    expect(usuarios[0]).toMatchObject({ nombre: 'Felipe', rol: 'titular', etiqueta_aportante: 'papá' });
+    // Felipe (titular) y, desde la ola 4, Pablo (colaborador).
+    expect(usuarios).toHaveLength(2);
+    expect(usuarios.find((u) => u.rol === 'titular')).toMatchObject({ nombre: 'Felipe', etiqueta_aportante: 'papá' });
+    expect(usuarios.find((u) => u.rol === 'colaborador')).toMatchObject({ nombre: 'Pablo' });
     expect(await db.categorias.where('tipo').equals('gasto').count()).toBe(21);
     const herramientas = await db.categorias.where('clave').equals('herramientas').first();
     expect(herramientas?.es_inversion).toBe(true);

@@ -8,7 +8,7 @@
 
 ## 1. Por qué Capacitor
 
-- Envuelve el build web tal cual (`dist/`) en un proyecto Android nativo. Las pantallas, los tokens, el microcopy y las 149 pruebas no cambian.
+- Envuelve el build web tal cual (`dist/`) en un proyecto Android nativo. Las pantallas, los tokens, el microcopy y las pruebas no cambian.
 - Da acceso nativo cuando haga falta: botón Atrás, barra de estado, splash, notificaciones locales o push, cámara y almacenamiento persistente.
 - La PWA sigue compilando igual (`npm run build`); Android es una salida más del mismo build.
 
@@ -166,7 +166,8 @@ Cuando se ejecute la migración, el verificador debe sumar dos pasos tras el bui
 ```js
 correr('Capacitor sync', node, ['node_modules/@capacitor/cli/bin/capacitor', 'sync', 'android']);
 if (process.env.ANDROID_HOME) {
-  correr('APK de depuración', join('android', process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'), ['assembleDebug', '-q'], { cwd: ruta('android'), shell: process.platform === 'win32' });
+  // Ruta absoluta: con cwd en android/, una relativa ('android/gradlew') apuntaría a android/android/.
+  correr('APK de depuración', ruta('android', process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'), ['assembleDebug', '-q'], { cwd: ruta('android'), shell: process.platform === 'win32' });
 }
 ```
 

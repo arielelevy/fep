@@ -391,10 +391,11 @@ button:disabled {
 }
 
 /* ---------- Hoja modal (Registrar, PDF p. 2) ---------- */
+/* Hojas modales por encima de la barra Deshacer (50) para que no tape su botón principal; diálogos en 60. */
 .capa {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 55;
   display: flex;
   justify-content: center;
   background: rgba(21, 36, 26, 0.35);
@@ -1097,4 +1098,65 @@ button:disabled {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------- Ola 4: bloques Cobro, Aporte y Fianza de Registrar (§10.2.2) ---------- */
+.chips-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.texto-aclaratorio.azul {
+  background: var(--azul-fondo);
+  color: var(--azul);
+}
+.texto-aclaratorio.ambar {
+  background: var(--ambar-fondo);
+  color: var(--ambar-texto);
+}
+.casilla {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--verde-oscuro);
+  flex: none;
+}
+.ancho-total {
+  width: 100%;
+}
+.celda .sub {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+.fila-pendiente {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 16px;
+}
+.fila-pendiente + .fila-pendiente {
+  border-top: 1px solid var(--fondo-apagado);
+}
+.fila-pendiente .textos {
+  flex: 1;
+  min-width: 0;
+}
+.fila-pendiente .boton-ya-pago {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--ambar-texto);
+  color: #fff;
+  font-weight: 800;
+}
+.fila-pendiente .boton-ya-pago.rojo {
+  background: var(--rojo-texto-fuerte);
+}
+.chip-estado.rojo {
+  background: var(--rojo-fondo);
+  color: var(--rojo-texto-fuerte);
 }
