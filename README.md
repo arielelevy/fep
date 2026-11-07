@@ -2,7 +2,7 @@
 
 PWA para llevar el día a día de FERGO desde el móvil: registrar gastos y cobros, llevar los clientes y lo que deben, los aportes de Pablo y las fianzas, y ver lo que hay en caja y lo ganado en el mes. Los datos se guardan en el propio dispositivo (IndexedDB); todavía no hay servidor.
 
-Estado: ola 6 (clima y semáforo de visitas), sobre la agenda de la ola 5. Alertas, mover y avisar por WhatsApp e informes llegan en olas posteriores. El tiempo y los mapas son simulados: sin proveedor real, la app instalada muestra «Sin previsión». La app sigue siendo una PWA: el pasaje a app Android nativa está documentado, no ejecutado (ver [migración a Android](docs/migracion-android.md)).
+Estado: ola 7 (alertas de clima y mover visita por WhatsApp), sobre la agenda y el semáforo de las olas 5 y 6. Preparar trabajo, cobros y fianzas en Alertas, el resumen de las 21:00 e informes llegan en olas posteriores. El tiempo, los avisos AEMET y los mapas son simulados: sin proveedor real, la app instalada muestra «Sin previsión» y no salen alertas de clima. La app sigue siendo una PWA: el pasaje a app Android nativa está documentado, no ejecutado (ver [migración a Android](docs/migracion-android.md)).
 
 ## Qué hace hoy
 
@@ -15,6 +15,7 @@ Estado: ola 6 (clima y semáforo de visitas), sobre la agenda de la ola 5. Alert
 - **Movimientos**: lista del mes con filtros (también por cliente), editar y eliminar (borrado lógico) con deshacer.
 - **Agenda**: franja de 14 días con el tiempo de cada día (días 8 a 14 atenuados y «ORIENTATIVO» con su «i»), visitas puntuales y recurrentes, detalle, mover, cancelar y flujo «Hecho» con cobro.
 - **Semáforo de visitas**: en Agenda, Hoy y el detalle cada visita programada dice con palabras «Se puede ir», «Con cuidado», «Mejor mover» o «Sin previsión» según el tiempo y el tipo de trabajo, con consejo y hora de actualización. Los días con alguna visita «Mejor mover» llevan contorno rojo.
+- **Alertas de clima**: campana con insignia (cuenta sólo lo que hay que decidir) en Hoy y Agenda, y pantalla Alertas con «Para decidir» y «Para tener en cuenta». Sin duplicados: una alerta por visita y asunto, que se actualiza si cambia el nivel. Desde la alerta se propone día y hora libres, se mueve la visita y se abre WhatsApp Business con el mensaje escrito (enlace wa.me; la app no envía nada), o se mantiene la visita. Todo con «Deshacer».
 - **Ubicación del cliente**: mapa con chincheta corregible en el alta, la edición y la ficha; sin conexión el cliente se guarda igual, sin coordenadas.
 - **Rol colaborador**: en Ajustes se elige quién usa el móvil (Felipe o Pablo); Pablo sólo registra aportes y préstamos.
 
@@ -39,6 +40,8 @@ npm run verificar  # tipos, pruebas (src/ y cada carpeta tests/*/), build y comp
 | `src/screens/` | Pantallas: Hoy, Agenda, Detalle, alta y mover visita, hoja Hecho, Registrar (gasto y dinero), Movimientos, Clientes (listado, ficha, alta), Te deben, hoja de cobro, Saldo inicial, Guía de instalación, marcadores |
 | `src/clima/` | Motor del semáforo por reglas, servicio con caché, proveedor simulado y hooks |
 | `src/agenda/clima/` | Franja del tiempo, línea de semáforo y «Tiempo de la visita» |
+| `src/dominio/alertas/` | Motor de alertas de clima (catálogo, deduplicación, avisos AEMET simulados, huecos para mover, mensajes wa.me); contrato en `CONTRATO.md`, supuestos en `PREGUNTAS.md` |
+| `src/pantallas/alertas/`, `src/componentes/alertas/` | Pantalla Alertas, tarjeta «Para decidir» con mover y avisar, y campana con insignia |
 | `src/clientes/ubicacion/`, `src/geocodificacion/` | Mapa con chincheta y geocodificación tras una interfaz (proveedor simulado) |
 | `src/components/` | Barra inferior, Deshacer, diálogos, cifras animadas, iconos |
 | `src/domain/` | Tipos, categorías iniciales, cálculo de cifras, pendientes (Te deben, fianzas, préstamos) y orden de categorías |
@@ -47,7 +50,7 @@ npm run verificar  # tipos, pruebas (src/ y cada carpeta tests/*/), build y comp
 | `src/styles/` | Tokens de diseño y estilos |
 | `scripts/` | `verificar.mjs` y `generar-iconos.mjs` |
 | `public/` | Iconos de la PWA |
-| `tests/` | Pruebas por frente con su propia configuración: `tests/clima`, `tests/agenda-clima`, `tests/clientes-ubicacion` |
+| `tests/` | Pruebas por frente con su propia configuración: `tests/clima`, `tests/agenda-clima`, `tests/clientes-ubicacion`, `tests/alertas` |
 
 ## Documentación
 

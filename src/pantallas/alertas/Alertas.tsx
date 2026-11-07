@@ -5,16 +5,16 @@ import { TarjetaDecidir, type Decision } from '../../componentes/alertas/Tarjeta
 import { almacen, enCola, useAlertasClima } from '../../componentes/alertas/useAlertasClima';
 import { useDatos } from '../../db/datos';
 import { SinPermiso } from '../../db/repo';
-import { diaConNumero, mantenerVisita, moverVisitaPorAlerta, type AlertaClima } from '../../dominio/alertas';
+import { diaEnFrase, mantenerVisita, moverVisitaPorAlerta, type AlertaClima } from '../../dominio/alertas';
+import { SeccionPreparar, useHayPreparacion } from '../../features/alertas/preparacion';
 import '../../agenda/clima/clima.css';
 import '../../componentes/alertas/alertas.css';
-
-const diaEnFrase = (fecha: string) => diaConNumero(fecha).toLowerCase();
 
 // Pantalla Alertas (§10.7; maqueta «6. Alertas»). Ola 7: alertas de clima del motor del frente A.
 //   1. «‹ Agenda» (o la pantalla de origen), título «Alertas» y subtítulo «Tiempo y preparación de los próximos días».
 //   2. Secciones en orden; las vacías no se muestran: PARA DECIDIR (clima a mover y avisos AEMET) y PARA TENER EN
-//      CUENTA (informativas y mejoras). «Preparar trabajos» y «Cobros y fianzas» llegan con sus olas.
+//      CUENTA (informativas y mejoras). Ola 8: PREPARAR TRABAJOS (src/features/alertas/preparacion), entre las dos.
+//      «Cobros y fianzas» llega con su ola.
 //   3. Pie con la campana: «Un solo aviso al día, a las 21:00, con todo junto.»
 //   4. Vacío: «Todo en orden. No hay nada que decidir esta semana.»
 // Mover / Mantener dejan la barra «… · Deshacer» 8 segundos. WhatsApp se abre con un enlace wa.me: la app no envía
@@ -24,12 +24,16 @@ export function Alertas({
   etiquetaVolver,
   onVolver,
   onAbrirVisita,
+  onPreparar = () => {},
 }: {
   etiquetaVolver: string;
   onVolver: () => void;
   onAbrirVisita: (visitaId: string) => void;
+  /** Ola 8: abre Preparar trabajo de un día (tarjetas de «Preparar trabajos»). */
+  onPreparar?: (fecha: string) => void;
 }) {
   const datos = useDatos();
+  const hayPreparacion = useHayPreparacion();
   const { estado, activas, decisiones, clima } = useAlertasClima();
   const { mostrar } = useDeshacer();
   const [ocupada, setOcupada] = useState<string | null>(null);
@@ -90,7 +94,7 @@ export function Alertas({
       </h1>
       <p className="subtitulo-alertas">Tiempo y preparación de los próximos días</p>
 
-      {!cargando && activas.length === 0 && (
+      {!cargando && activas.length === 0 && hayPreparacion === false && (
         <div className="tarjeta tarjeta-vacia" style={{ marginTop: 16 }}>
           <p className="titulo">Todo en orden. No hay nada que decidir esta semana.</p>
         </div>
@@ -121,6 +125,9 @@ export function Alertas({
           })}
         </section>
       )}
+
+      {/* PREPARAR TRABAJOS (§10.7, ola 8): furgoneta, compra y preparación por día. Va entre las dos de clima. */}
+      <SeccionPreparar onPreparar={onPreparar} />
 
       {enCuenta.length > 0 && (
         <section aria-labelledby="sec-cuenta">

@@ -12,4 +12,4 @@ export {
   almacenAlertasEnMemoria, almacenAlertasLocal, CLAVE_AJUSTE_ALERTAS, mantenerVisita, moverVisitaPorAlerta, prepararClima, quienSoy, recalcularYGuardar,
   type AlmacenAlertas,
 } from './operaciones';
-export { diaConNumero, diasEntre } from './textos';
+export { detalleSemaforo, diaConNumero, diaEnFrase, diasEntre } from './textos';

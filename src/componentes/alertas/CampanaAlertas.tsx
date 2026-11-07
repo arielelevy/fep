@@ -1,5 +1,6 @@
 import { Bell } from 'lucide-react';
 import { useId } from 'react';
+import { useAlertasPreparacion } from '../../features/alertas/preparacion/useAlertasPreparacion';
 import { useAlertasClima } from './useAlertasClima';
 import './alertas.css';
 
@@ -7,7 +8,10 @@ import './alertas.css';
 // a la derecha de la cabecera). La insignia roja cuenta las alertas activas que requieren decisión (no las
 // informativas) y desaparece con 0. El nombre accesible sigue siendo «Alertas»; el número se lee como descripción.
 export function CampanaAlertas({ onClick }: { onClick: () => void }) {
-  const { insignia } = useAlertasClima();
+  const clima = useAlertasClima();
+  // Ola 8: también cuentan las de preparación con acción (alquilar, recoger y devolver la furgoneta, comprar).
+  const preparacion = useAlertasPreparacion();
+  const insignia = clima.insignia + (preparacion?.insignia ?? 0);
   const id = useId();
   const texto = insignia === 1 ? '1 para decidir' : `${insignia} para decidir`;
   return (

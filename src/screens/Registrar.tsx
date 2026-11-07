@@ -41,7 +41,13 @@ const TIPOS: { id: TipoHoja; nombre: string }[] = [
 
 // Cola única para el borrador: evita que una escritura tardía lo resucite tras guardar.
 let colaBorrador: Promise<unknown> = Promise.resolve();
-const encolar = (f: () => Promise<unknown>) => (colaBorrador = colaBorrador.then(f, f));
+// La cola guarda la versión «atendida» de cada escritura: si una falla (p. ej. la base se cerró), no queda un rechazo
+// sin atender hasta la siguiente pulsación. Quien espera la escritura recibe igualmente el error.
+const encolar = (f: () => Promise<unknown>) => {
+  const r = colaBorrador.then(f, f);
+  colaBorrador = r.catch(() => undefined);
+  return r;
+};
 
 export function Registrar({
   editar,
@@ -110,7 +116,7 @@ export function Registrar({
         url = URL.createObjectURL(f.blob);
         setFotoExistenteUrl(url);
       }
-    });
+    }).catch((e) => console.error('No se pudo leer la foto del ticket', e));
     return () => {
       activo = false;
       if (url) URL.revokeObjectURL(url);
@@ -134,7 +140,7 @@ export function Registrar({
     encolar(() => {
       if (cerrando.current) return Promise.resolve();
       return hay ? guardarAjuste(CLAVE_BORRADOR, valor) : borrarAjuste(CLAVE_BORRADOR);
-    });
+    }).catch((e) => console.error('No se pudo guardar el borrador', e));
   }, [editar, tipo, textoImporte, categoriaId, fechaClave, medio, nota]);
 
   const hayDatos = Boolean(textoImporte || categoriaId || nota || foto);

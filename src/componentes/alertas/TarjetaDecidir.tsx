@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
+import { horaDe } from '../../domain/agenda';
 import type { Cliente, Visita } from '../../domain/tipos';
 import {
-  enlaceWhatsApp, esHuecoLibre, horasLibres, mensajeMoverVisita, NOTA_HORAS, proponerMover,
+  detalleSemaforo, enlaceWhatsApp, esHuecoLibre, horasLibres, mensajeMoverVisita, NOTA_HORAS, proponerMover,
   type AlertaClima, type ClimaCliente, type EntradaPropuesta, type OpcionHora,
 } from '../../dominio/alertas';
 import { evaluarVisita } from '../../clima';
@@ -280,7 +281,7 @@ function CalendarioDias({
 }) {
   const id = useId();
   const dias = useMemo(() => {
-    const hora = entrada.visita.hora_inicio ?? '09:00';
+    const hora = horaDe(entrada.visita);
     const r = [];
     for (let i = 1; i <= 13; i++) {
       const fecha = sumarDias(hoy, i);
@@ -350,7 +351,7 @@ function otrosMotivos(principal: AlertaClima, otras: AlertaClima[], visita: Visi
     motivoSinPrevision: clima?.motivo,
   });
   if (s.orientativo || (s.nivel !== 'ambar' && s.nivel !== 'rojo')) return [];
-  const detalle = s.etiqueta.startsWith(s.estado) ? s.etiqueta.slice(s.estado.length).replace(/^\s*·\s*/, '') : s.etiqueta;
+  const detalle = detalleSemaforo(s);
   const texto = `${s.estado}: ${detalle}.`.replace(/\.\.$/, '.');
   return principal.cuerpo.includes(detalle) ? [] : [texto];
 }

@@ -14,6 +14,11 @@ export function diasEntre(a: string, b: string): number {
   return Math.round((t(b) - t(a)) / 86_400_000);
 }
 
+/** Etiqueta del semáforo sin repetir el estado: «Mejor mover · Lluvia toda la mañana» → «Lluvia toda la mañana». */
+export function detalleSemaforo(s: Pick<Semaforo, 'estado' | 'etiqueta'>): string {
+  return s.etiqueta.startsWith(s.estado) ? s.etiqueta.slice(s.estado.length).replace(/^\s*·\s*/, '') : s.etiqueta;
+}
+
 /** «Jueves 15». */
 export function diaConNumero(fecha: string): string {
   return `${DIAS_LARGOS[diaSemanaDeClave(fecha)]} ${Number(fecha.slice(8, 10))}`;

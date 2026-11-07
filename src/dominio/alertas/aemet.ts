@@ -7,6 +7,7 @@
 
 import type { AvisoOficial, FenomenoAviso, NivelAviso, Ubicacion } from '../../clima';
 import { claveDia, sumarDias } from '../../lib/fechas';
+import { RANGO_AVISO } from './catalogo';
 
 /** Parámetro CAP (`<parameter><valueName/><value/></parameter>`). */
 export interface ParametroCap {
@@ -85,7 +86,6 @@ const parametro = (info: InfoCap, nombre: string) => info.parameter.find((p) => 
  * Ignora alertas de prueba, canceladas, verdes y fenómenos que no son de §13.4.
  */
 export function avisosDesdeCap(alertas: AlertaCap[], u: Ubicacion, desde: string, hasta: string): AvisoOficial[] {
-  const rango = { amarillo: 1, naranja: 2, rojo: 3 } as const;
   const porClave = new Map<string, AvisoOficial>();
   for (const a of alertas) {
     if (a.status !== 'Actual' || a.msgType === 'Cancel') continue;
@@ -101,7 +101,7 @@ export function avisosDesdeCap(alertas: AlertaCap[], u: Ubicacion, desde: string
       for (let d = inicio < desde ? desde : inicio; d <= fin && d <= hasta; d = sumarDias(d, 1)) {
         const k = `${d}|${fenomeno}`;
         const previo = porClave.get(k);
-        if (!previo || rango[nivel] > rango[previo.nivel]) porClave.set(k, { fecha: d, nivel, fenomeno });
+        if (!previo || RANGO_AVISO[nivel] > RANGO_AVISO[previo.nivel]) porClave.set(k, { fecha: d, nivel, fenomeno });
       }
     }
   }

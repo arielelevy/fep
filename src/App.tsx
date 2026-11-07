@@ -25,12 +25,26 @@ import { CLAVE_BORRADOR, Registrar, type Borrador, type TipoHoja } from './scree
 import { SaldoInicial } from './screens/SaldoInicial';
 import { TeDeben } from './screens/TeDeben';
 import { Alertas } from './pantallas/alertas/Alertas';
+import { PrepararTrabajo } from './features/preparar/PrepararTrabajo';
+import { FilasAjustesPreparacion, type AjustePreparacion } from './features/ajustes/plantillas/FilasAjustesPreparacion';
+import { PlantillaRopa } from './features/ajustes/plantillas/PlantillaRopa';
+import { PlantillasMaterial } from './features/ajustes/plantillas/PlantillasMaterial';
+import { Proveedores } from './features/ajustes/proveedores/Proveedores';
 
 // Navegación (§7): 4 pestañas + botón Registrar; pantallas de segundo nivel con la barra visible
 // (Alertas, Ajustes, Informes, Te deben, Ficha de cliente); hojas modales (Registrar, Saldo inicial,
 // Nuevo/Editar cliente, ¿Cobraste a …?) a pantalla completa o desde abajo, sin barra. Máximo 3 niveles.
 
-type Sub = null | 'alertas' | 'ajustes' | 'informes' | 'te-deben' | { cliente: string } | { visita: string };
+type Sub =
+  | null
+  | 'alertas'
+  | 'ajustes'
+  | 'informes'
+  | 'te-deben'
+  | { cliente: string }
+  | { visita: string }
+  | { preparar: string; desde?: 'alertas' }
+  | { ajuste: AjustePreparacion };
 type Hoja =
   | null
   | { tipo: 'registrar'; editar?: Movimiento; borrador?: Borrador; inicial?: { tipo: TipoHoja; clienteId?: string } }
@@ -64,7 +78,9 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
 
   // Borrador (§5.1.6): al volver a la app se ofrece recuperar el gasto a medias.
   useEffect(() => {
-    leerAjuste<Borrador | null>(CLAVE_BORRADOR, null).then((b) => b && setBorradorPendiente(b));
+    leerAjuste<Borrador | null>(CLAVE_BORRADOR, null)
+      .then((b) => b && setBorradorPendiente(b))
+      .catch((e) => console.error('No se pudo leer el borrador', e));
   }, []);
 
   // Series recurrentes (§8.5): al abrir la app se crean las visitas que falten hasta 8 semanas vista.
@@ -124,7 +140,19 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
 
   let pantalla;
   if (sub === 'alertas')
-    pantalla = <Alertas etiquetaVolver={NOMBRES[pestana]} onVolver={() => setSub(null)} onAbrirVisita={(id) => setSub({ visita: id })} />;
+    pantalla = (
+      <Alertas
+        etiquetaVolver={NOMBRES[pestana]}
+        onVolver={() => setSub(null)}
+        onAbrirVisita={(id) => setSub({ visita: id })}
+        onPreparar={(fecha) => setSub({ preparar: fecha, desde: 'alertas' })}
+      />
+    );
+  else if (sub && typeof sub === 'object' && 'ajuste' in sub) {
+    // Ajustes › Plantillas de material, Plantilla de ropa y Proveedores de alquiler (§10.10, ola 8): tercer nivel.
+    const props = { etiquetaVolver: 'Ajustes', onVolver: () => setSub('ajustes') };
+    pantalla = sub.ajuste === 'material' ? <PlantillasMaterial {...props} /> : sub.ajuste === 'ropa' ? <PlantillaRopa {...props} /> : <Proveedores {...props} />;
+  }
   else if (sub === 'ajustes')
     pantalla = (
       <Marcador titulo="Ajustes" vacio="Ajustes en camino" texto="Categorías, avisos y proveedores llegan en la próxima versión." volver={volver}>
@@ -142,6 +170,7 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
           </div>
         </div>
         <p className="secundario" style={{ margin: '8px 4px 0' }}>Pablo ve todo y solo puede registrar aportes y préstamos.</p>
+        <FilasAjustesPreparacion onAbrir={(a) => setSub({ ajuste: a })} />
         <div className="filas">
           <button type="button" className="fila tocable" onClick={onVerGuia}>
             <span className="nombre">Guía de instalación</span>
@@ -152,6 +181,16 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
   else if (sub === 'informes')
     pantalla = <Marcador titulo="Informes" vacio="Informes en camino" texto="Los gráficos y la exportación a Excel llegan en la próxima versión." volver={volver} />;
   else if (sub === 'te-deben') pantalla = <TeDeben etiquetaVolver={NOMBRES[pestana]} onVolver={() => setSub(null)} onYaPago={yaPago} />;
+  else if (sub && typeof sub === 'object' && 'preparar' in sub)
+    // Preparar trabajo (§10.8, ola 8): un día de trabajo; «‹» vuelve a la pantalla de origen.
+    pantalla = (
+      <PrepararTrabajo
+        fecha={sub.preparar}
+        etiquetaVolver={sub.desde === 'alertas' ? 'Alertas' : NOMBRES[pestana]}
+        onVolver={() => setSub(sub.desde === 'alertas' ? 'alertas' : null)}
+        onAbrirVisita={(id) => setSub({ visita: id })}
+      />
+    );
   else if (sub && typeof sub === 'object' && 'visita' in sub)
     pantalla = (
       <VisitaDetalle
@@ -160,6 +199,7 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
         onVolver={() => setSub(null)}
         onEditar={(id) => setHoja({ tipo: 'visita', visita: datos?.visitas.find((x) => x.id === id) })}
         onHecho={hecho}
+        onPreparar={(fecha) => setSub({ preparar: fecha })}
         onAbrirCliente={(id) => {
           setPestana('clientes');
           setSub({ cliente: id });
@@ -234,7 +274,8 @@ function Principal({ onVerGuia }: { onVerGuia: () => void }) {
       {hoja?.tipo === 'visita' && <VisitaForm visita={hoja.visita} fechaInicial={hoja.fecha} onCerrar={() => setHoja(null)} />}
       {hoja?.tipo === 'hecho' && <HojaHecho visitaId={hoja.visitaId} modo={hoja.modo} onCerrar={() => setHoja(null)} />}
 
-      {borradorPendiente && !hoja && !datos?.esColaborador && (
+      {/* Solo con los datos cargados: si no, «Seguir» abría Registrar sin categorías y con Pablo el aviso asomaba un instante. */}
+      {borradorPendiente && !hoja && datos && !datos.esColaborador && (
         <Dialogo
           titulo={importeBorrador ? `Tenías un gasto a medias de ${formatearEuros(importeBorrador)}. ¿Seguir?` : 'Tenías un gasto a medias. ¿Seguir?'}
           principal="Seguir"

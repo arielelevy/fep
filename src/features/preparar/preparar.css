@@ -1,0 +1,477 @@
+/* Preparar trabajo (§10.8; maqueta «7. Preparar trabajo»), con los tokens de §6.1 y las formas de §6.3:
+   etiqueta verde «PREPARAR · EN 3 DÍAS», tarjetas blancas de 16 pt, barra de progreso, «Lo tengo» lima suave,
+   «Comprar» ámbar oscuro relleno, caja ámbar de la lista de compra, ropa en azul suave. Zonas táctiles ≥ 44 pt;
+   sin animaciones propias (respeta «Reducir movimiento» con la regla global). */
+
+.preparar .etiqueta-preparar {
+  margin: 4px 0 0;
+  color: var(--verde-medio);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+.preparar .titulo-preparar {
+  margin: 4px 0 2px;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--texto);
+}
+.preparar .detalle-preparar {
+  margin: 0;
+  color: var(--texto-3);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.esqueleto-preparar {
+  height: 220px;
+  border-radius: var(--radio-tarjeta);
+  background: var(--fondo-apagado);
+}
+
+.visitas-preparar {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  background: var(--superficie);
+  border-radius: var(--radio-tarjeta);
+}
+.visitas-preparar li + li {
+  border-top: 1px solid var(--fondo-apagado);
+}
+.fila-visita {
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  text-align: left;
+  font-weight: 700;
+  color: var(--texto);
+}
+.fila-visita .hora {
+  color: var(--verde-oscuro);
+  font-weight: 800;
+}
+.fila-visita .trabajos {
+  color: var(--texto-3);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.progreso-preparar {
+  margin-top: 14px;
+}
+.texto-progreso {
+  margin: 0 0 8px;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.barra-progreso {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--fondo-apagado);
+  overflow: hidden;
+}
+.barra-progreso span {
+  display: block;
+  height: 100%;
+  background: var(--verde-medio);
+}
+.leyenda-bloques {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+.leyenda-bloques li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.leyenda-bloques .punto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--texto-3);
+}
+.leyenda-bloques li[data-listo='true'] .punto {
+  background: var(--verde-punto);
+  border-color: var(--verde-punto);
+}
+
+.bloque-preparar {
+  margin-top: 12px;
+}
+.bloque-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bloque-cabecera h2 {
+  margin: 0;
+  flex: 1;
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+.bloque-cabecera > div {
+  flex: 1;
+}
+.bloque-icono {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--fondo-apagado);
+  color: var(--verde-medio);
+}
+.bloque-icono.azul {
+  background: var(--azul-fondo);
+  color: var(--azul);
+}
+.bloque-sub {
+  margin: 2px 0 0;
+  color: var(--texto-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.bloque-texto {
+  margin: 10px 0 0;
+  color: var(--texto-2);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.bloque-pregunta {
+  margin: 14px 0 6px;
+  font-weight: 800;
+}
+.bloque-acciones {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+.bloque-acciones .boton-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.bloque-acciones .enlaces {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.opciones-devolucion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.opciones-devolucion .boton-principal,
+.opciones-devolucion .boton-secundario {
+  flex: 1 1 140px;
+}
+.bloque-medios {
+  margin-top: 8px;
+}
+.bloque-medios .chips {
+  overflow-x: auto;
+}
+.etiqueta-campo {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--texto-3);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.chip-preparar {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: var(--radio-chip);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--fondo-apagado);
+  color: var(--texto-2);
+}
+.chip-preparar.ambar {
+  background: var(--ambar-fondo);
+  color: var(--ambar-texto);
+}
+.chip-preparar.lima {
+  background: var(--lima-suave);
+  color: var(--verde-oscuro);
+}
+
+.caja-resumen {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--fondo-apagado);
+}
+.caja-resumen div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+.caja-resumen dt {
+  color: var(--texto-3);
+  font-weight: 600;
+}
+.caja-resumen dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+
+.campo-importe,
+.campo-preparar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--texto-2);
+  font-size: 0.875rem;
+}
+.campo-importe input,
+.campo-preparar input,
+.campo-preparar select {
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+.formulario-preparar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.lista-material {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.articulo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+.articulo + .articulo {
+  border-top: 1px solid var(--fondo-apagado);
+}
+.articulo .nombre {
+  flex: 1 1 140px;
+  font-weight: 600;
+}
+.articulo .botones {
+  display: flex;
+  gap: 6px;
+}
+.boton-material {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto-2);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.boton-material.tengo[aria-pressed='true'] {
+  background: var(--lima-suave);
+  border-color: var(--lima-suave);
+  color: var(--verde-oscuro);
+}
+.boton-material.comprar[aria-pressed='true'] {
+  background: var(--ambar-texto);
+  border-color: var(--ambar-texto);
+  color: var(--ambar-fondo);
+}
+.anadir {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+.anadir-articulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.anadir-articulo input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--borde);
+  font: inherit;
+  font-weight: 600;
+}
+
+.caja-compra {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ambar-fondo);
+  color: var(--ambar-texto);
+}
+.caja-compra .lista {
+  margin: 0;
+  font-weight: 700;
+}
+.recordarme {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.recordarme .etiqueta {
+  flex: 1;
+  font-weight: 700;
+}
+.boton-hora {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--ambar-texto);
+  font-weight: 800;
+}
+.opciones-recordatorio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.opciones-recordatorio input {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--borde);
+  font: inherit;
+}
+.opciones-recordatorio .chip[aria-pressed='true'] {
+  background: var(--ambar-texto);
+  border-color: var(--ambar-texto);
+  color: var(--ambar-fondo);
+}
+.por-comprar {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.por-comprar li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-weight: 600;
+}
+
+.lista-ropa {
+  list-style: none;
+  margin: 10px 0 6px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 8px;
+}
+.prenda {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+.prenda .casilla {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 6px;
+  border: 2px solid var(--azul);
+  background: var(--superficie);
+  display: grid;
+  place-items: center;
+  color: var(--superficie);
+}
+.prenda[aria-checked='true'] .casilla {
+  background: var(--azul);
+}
+.bloque-ropa {
+  border-top: 4px solid var(--azul-fondo);
+}
+
+.resumen-preparacion {
+  width: 100%;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  color: var(--texto);
+}
+.resumen-preparacion .textos {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.resumen-preparacion .titulo {
+  font-weight: 800;
+}
+.resumen-preparacion .detalle {
+  color: var(--texto-3);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.hoja-pie-doble {
+  align-items: center;
+  justify-content: space-between;
+}
+.hoja-pie-doble .boton-principal {
+  flex: 1;
+}
+
+/* «Añadir siempre para [tipo]» (§10.8.2): casillas de 44 pt bajo el campo, como las de la ropa. */
+.anadir-articulo {
+  flex-wrap: wrap;
+}
+.siempre-para {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.siempre-para .prenda .casilla {
+  border-color: var(--verde-medio);
+}
+.siempre-para .prenda[aria-checked='true'] .casilla {
+  background: var(--verde-medio);
+}

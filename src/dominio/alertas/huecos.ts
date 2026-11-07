@@ -11,7 +11,7 @@ import { horaDe } from '../../domain/agenda';
 import type { Cliente, Visita } from '../../domain/tipos';
 import { claveDia, diaSemanaDeClave, sumarDias } from '../../lib/fechas';
 import { TEXTO_SEMAFORO, UMBRALES_ALERTAS } from './catalogo';
-import { datoClave, diaConNumero, probLluvia } from './textos';
+import { datoClave, detalleSemaforo, diaConNumero, probLluvia } from './textos';
 import type { ClimaCliente, OpcionDia, OpcionHora, PropuestaMover } from './tipos';
 
 export const NOTA_HORAS = 'Solo se ofrecen huecos libres en tu agenda.';
@@ -63,8 +63,7 @@ function evaluar(e: EntradaPropuesta, fecha: string, hora: string): Evaluacion {
   if (s.orientativo) return { semaforo: s, categoria: 1, tiempo: 'Previsión orientativa' };
   if (s.nivel === 'gris') return { semaforo: s, categoria: 1, tiempo: TEXTO_SEMAFORO.gris };
   if (s.nivel === 'verde') {
-    const detalle = s.etiqueta.startsWith(s.estado) ? s.etiqueta.slice(s.estado.length).replace(/^\s*·\s*/, '') : s.etiqueta;
-    return { semaforo: s, categoria: 0, tiempo: detalle.split(',')[0] || TEXTO_SEMAFORO.verde };
+    return { semaforo: s, categoria: 0, tiempo: detalleSemaforo(s).split(',')[0] || TEXTO_SEMAFORO.verde };
   }
   const p = probLluvia(s);
   return { semaforo: s, categoria: s.nivel === 'ambar' ? 2 : 3, tiempo: p !== null ? `${Math.round(p)}% lluvia` : (datoClave(s) ?? s.estado) };

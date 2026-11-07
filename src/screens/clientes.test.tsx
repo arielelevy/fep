@@ -443,7 +443,8 @@ describe('Ficha (maqueta p. 4)', () => {
     expect(dialogo.textContent).toContain('Deja de generar cobros. Su historial se conserva.');
     await user.click(within(dialogo).getByRole('button', { name: 'Desactivar' }));
     await waitFor(async () => expect((await db.clientes.get(c.id))!.activo).toBe(false));
-    expect(screen.getByRole('status').textContent).toContain('Cliente desactivado');
+    // La barra aparece justo después de la escritura: con la PC cargada hay que esperarla (falla intermitente, ola 8).
+    expect((await screen.findByRole('status')).textContent).toContain('Cliente desactivado');
     expect(await screen.findByRole('button', { name: 'Reactivar cliente' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Deshacer' }));
     await waitFor(async () => expect((await db.clientes.get(c.id))!.activo).toBe(true));

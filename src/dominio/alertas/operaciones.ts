@@ -8,8 +8,7 @@ import { guardarAjuste, leerAjuste, moverVisita, SinPermiso, type Deshacer } fro
 import type { Cliente, Visita } from '../../domain/tipos';
 import { claveDia, sumarDias } from '../../lib/fechas';
 import type { ProveedorAvisos } from './aemet';
-import { estadoVacio, recalcularAlertas } from './motor';
-import { RANGO_AVISO, RANGO_SEMAFORO } from './catalogo';
+import { estadoVacio, rangoDe, recalcularAlertas } from './motor';
 import type { AlertaClima, ClimaCliente, EstadoAlertas, ResultadoRecalculo } from './tipos';
 
 export const CLAVE_AJUSTE_ALERTAS = 'alertas_clima';
@@ -115,10 +114,9 @@ export async function mantenerVisita(almacen: AlmacenAlertas, alertaId: string, 
   a.actualizado_en = iso;
   a.modificado_por = usuario;
   a.version += 1;
-  const rango = a.tipo === 'CLIMA_AEMET' && a.aviso ? RANGO_AVISO[a.aviso.nivel] : RANGO_SEMAFORO[a.semaforo];
   estado.descartes = [
     ...estado.descartes.filter((d) => d.clave_asunto !== a.clave_asunto),
-    { clave_asunto: a.clave_asunto, rango, descartado_en: iso, descartado_por: usuario },
+    { clave_asunto: a.clave_asunto, rango: rangoDe(a), descartado_en: iso, descartado_por: usuario },
   ];
   await almacen.guardar(estado);
   return { alerta: a, deshacer: () => almacen.guardar(antes) };

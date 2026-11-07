@@ -1,0 +1,84 @@
+/* Sección «Preparar trabajos» de Alertas (§10.7). Reutiliza las tarjetas de Alertas (franja de 4 pt a la izquierda,
+   tarjeta de 16 pt) y añade la franja verde de la tarjeta de preparación por día y sus chips (§6.1: ámbar para lo
+   pendiente, lima suave para lo listo, azul suave para la ropa). Estados con texto, nunca solo color. */
+
+.seccion-preparar .tarjeta-alerta + .tarjeta-alerta {
+  margin-top: 12px;
+}
+.tarjeta-alerta[data-nivel='verde']::before {
+  background: var(--verde-medio);
+}
+.tarjeta-alerta[data-nivel='verde'] .linea-superior {
+  color: var(--verde-medio);
+}
+.tarjeta-dia-prep {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+  text-align: left;
+  border: 0;
+  font: inherit;
+}
+.tarjeta-dia-prep .linea-superior,
+.tarjeta-dia-prep .titulo-dia,
+.tarjeta-dia-prep .chips-prep {
+  grid-column: 1;
+}
+.tarjeta-dia-prep .flecha {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  color: var(--texto-3);
+}
+.tarjeta-dia-prep .titulo-dia {
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+.chips-prep {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.chip-prep {
+  padding: 3px 10px;
+  border-radius: var(--radio-chip);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--fondo-apagado);
+  color: var(--texto-2);
+}
+.chip-prep.ambar {
+  background: var(--ambar-fondo);
+  color: var(--ambar-texto);
+}
+.chip-prep.lima {
+  background: var(--lima-suave);
+  color: var(--verde-oscuro);
+}
+.chip-prep.azul {
+  background: var(--azul-fondo);
+  color: var(--azul);
+}
+.acciones-prep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.acciones-prep .boton-principal {
+  flex: 1 1 100%;
+}
+.acciones-prep .boton-secundario {
+  flex: 1 1 140px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.punto-semaforo[data-nivel='azul'] {
+  background: var(--azul);
+}

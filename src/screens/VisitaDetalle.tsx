@@ -12,6 +12,7 @@ import { urlComoLlegar } from '../lib/mapas';
 import { BandaSinConexion } from './Hoy';
 import { MoverVisita } from './MoverVisita';
 import { SemaforoDetalle } from '../agenda/clima/SemaforoDetalle';
+import { ResumenPreparacion } from '../features/preparar/ResumenPreparacion';
 import '../styles/clientes.css';
 import '../styles/agenda.css';
 
@@ -39,6 +40,7 @@ export function VisitaDetalle({
   onEditar,
   onHecho,
   onAbrirCliente,
+  onPreparar,
 }: {
   visitaId: string;
   etiquetaVolver: string;
@@ -46,6 +48,8 @@ export function VisitaDetalle({
   onEditar: (id: string) => void;
   onHecho: (id: string) => void;
   onAbrirCliente: (id: string) => void;
+  /** Preparar trabajo del día de la visita (§10.6.4 → §10.8). */
+  onPreparar?: (fecha: string) => void;
 }) {
   const datos = useDatos();
   const enLinea = useEnLinea();
@@ -181,6 +185,7 @@ export function VisitaDetalle({
       </section>
 
       {/* Como en Agenda y Hoy: el tiempo sólo para visitas por hacer (una hecha o cancelada no se mueve por el clima). */}
+      {programada && onPreparar && <ResumenPreparacion fecha={v.fecha} onAbrir={onPreparar} />}
       {programada && <SemaforoDetalle visita={v} cliente={cliente} visitas={datos.visitas} />}
 
       {editable && programada && (

@@ -20,7 +20,7 @@ import type { Cliente, Visita } from '../../domain/tipos';
 import { claveDia } from '../../lib/fechas';
 import { CATALOGO_CLIMA, RANGO_AVISO, RANGO_SEMAFORO, TEXTO_SEMAFORO, UMBRALES_ALERTAS } from './catalogo';
 import { claveAsunto, claveDedupe } from './dedupe';
-import { antelacionMayusculas, causaDe, cuandoCorto, datoClave, diaConNumero, diasEntre, mayuscula, NOMBRE_CAUSA, probLluvia, textoTrabajos } from './textos';
+import { antelacionMayusculas, causaDe, cuandoCorto, datoClave, detalleSemaforo, diaConNumero, diasEntre, mayuscula, NOMBRE_CAUSA, probLluvia, textoTrabajos } from './textos';
 import type { AlertaClima, ClimaCliente, Descarte, EstadoAlertas, NivelSemaforoAlerta, ResultadoRecalculo, TipoAlertaClima } from './tipos';
 
 export interface EntradaRecalculo {
@@ -43,11 +43,6 @@ const FENOMENO_FRASE: Record<AvisoOficial['fenomeno'], string> = { viento: 'vien
 
 function avisoMasGrave(avisos: AvisoOficial[], fecha: string): AvisoOficial | null {
   return avisos.filter((a) => a.fecha === fecha).sort((a, b) => RANGO_AVISO[b.nivel] - RANGO_AVISO[a.nivel] || a.fenomeno.localeCompare(b.fenomeno))[0] ?? null;
-}
-
-/** Etiqueta del semáforo sin repetir el estado: «Mejor mover · Lluvia toda la mañana» → «Lluvia toda la mañana». */
-function detalleSemaforo(s: Semaforo): string {
-  return s.etiqueta.startsWith(s.estado) ? s.etiqueta.slice(s.estado.length).replace(/^\s*·\s*/, '') : s.etiqueta;
 }
 
 /** Datos variables de una alerta (lo que se recalcula); el resto (id, trazabilidad, estado) lo pone `fusionar`. */
@@ -117,7 +112,7 @@ function datosAemet(v: Visita, cliente: Cliente | undefined, aviso: AvisoOficial
     titulo: `${diaConNumero(v.fecha)} · ${nombre}`,
     cuerpo: `${textoTrabajos(v.tipos_trabajo)} a las ${horaDe(v)}. Aviso ${aviso.nivel} por ${fen} en su zona.`,
     texto_resumen: `Aviso ${aviso.nivel} por ${fen} ${cuandoCorto(v.fecha, hoy)} en ${nombre}.`,
-    causa: aviso.fenomeno === 'tormenta' ? 'tormenta' : aviso.fenomeno,
+    causa: aviso.fenomeno,
     aviso,
     accion_principal: cat.accion_principal,
     accion_secundaria: cat.accion_secundaria,
@@ -157,7 +152,7 @@ function datosMejora(v: Visita, cliente: Cliente | undefined, anterior: AlertaCl
 }
 
 /** Rango de gravedad de unos datos de alerta (para comparar con descartes y decidir si se vuelve a avisar). */
-function rangoDe(d: Pick<Datos, 'tipo' | 'semaforo' | 'aviso'>): number {
+export function rangoDe(d: Pick<AlertaClima, 'tipo' | 'semaforo' | 'aviso'>): number {
   if (d.tipo === 'CLIMA_AEMET' && d.aviso) return RANGO_AVISO[d.aviso.nivel];
   return RANGO_SEMAFORO[d.semaforo];
 }
