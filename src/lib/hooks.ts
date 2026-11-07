@@ -38,13 +38,27 @@ export function prefiereMenosMovimiento(): boolean {
     : false;
 }
 
-/** Valor anterior de una variable entre renders. */
-export function useAnterior<T>(valor: T): T | undefined {
-  const ref = useRef<T | undefined>(undefined);
-  useEffect(() => {
-    ref.current = valor;
-  }, [valor]);
-  return ref.current;
+/**
+ * Cerrojo para acciones que no deben repetirse con un doble toque (guardar una hoja).
+ * `tomar()` es síncrono (ref) y devuelve false si ya hay una en curso; `ocupado` sirve para desactivar el botón.
+ * Si la acción falla, se llama a `soltar()`; si sale bien, la hoja se cierra y el cerrojo no se suelta.
+ */
+export function useCerrojo() {
+  const ref = useRef(false);
+  const [ocupado, setOcupado] = useState(false);
+  return {
+    ocupado,
+    tomar: () => {
+      if (ref.current) return false;
+      ref.current = true;
+      setOcupado(true);
+      return true;
+    },
+    soltar: () => {
+      ref.current = false;
+      setOcupado(false);
+    },
+  };
 }
 
 /** Lectura y escritura segura en localStorage (preferencias del dispositivo). */

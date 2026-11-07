@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Bell, Check, WifiOff } from 'lucide-react';
 import { CifraAnimada } from '../components/CifraAnimada';
 import { Logo } from '../components/Logo';
@@ -21,6 +21,19 @@ export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
   const [verDesglose, setVerDesglose] = useState(false);
   const ahora = new Date();
   const mes = claveMes(ahora);
+  // Las cifras se recalculan sólo cuando cambian los movimientos o el mes (no al tocar el desglose ni abrir hojas).
+  const movimientos = datos?.movimientos;
+  const cifras = useMemo(
+    () =>
+      movimientos && {
+        enCaja: calcularEnCaja(movimientos),
+        desglose: desgloseEnCaja(movimientos),
+        ganado: calcularGanado(movimientos, mes),
+        fianzas: calcularEnFianzas(movimientos),
+        aportes: calcularAportes(movimientos),
+      },
+    [movimientos, mes],
+  );
 
   return (
     <main className="pantalla" aria-labelledby="saludo">
@@ -41,18 +54,14 @@ export function Hoy({ onIr }: { onIr: (d: DestinoHoy) => void }) {
 
       {!enLinea && <BandaSinConexion />}
 
-      {!datos ? (
+      {!datos || !cifras ? (
         <ResumenCargando />
       ) : (
         <Resumen
-          enCaja={calcularEnCaja(datos.movimientos)}
-          desglose={desgloseEnCaja(datos.movimientos)}
+          {...cifras}
           verDesglose={verDesglose}
           onDesglose={() => setVerDesglose((v) => !v)}
-          ganado={calcularGanado(datos.movimientos, mes)}
           mes={nombreMes(mes)}
-          fianzas={calcularEnFianzas(datos.movimientos)}
-          aportes={calcularAportes(datos.movimientos)}
           etiquetaAportante={datos.usuario?.etiqueta_aportante ?? 'papá'}
           onIr={onIr}
         />
@@ -116,7 +125,7 @@ function Resumen(p: {
     <section className="resumen" aria-label="Resumen">
       <button type="button" className="en-caja tocable" aria-expanded={p.verDesglose} onClick={p.onDesglose}>
         <span className="etiqueta">En caja</span>
-        <CifraAnimada valor={p.enCaja} formato={(c) => formatearEuros(c)} className="cifra-principal" testId="en-caja" />
+        <CifraAnimada valor={p.enCaja} formato={formatearEuros} className="cifra-principal" testId="en-caja" />
         {p.verDesglose && (
           <span className="desglose">
             <span>Efectivo {formatearEuros(p.desglose.efectivo)}</span>
@@ -129,7 +138,7 @@ function Resumen(p: {
           <span className="etiqueta">Ganado en {p.mes}</span>
           <CifraAnimada
             valor={p.ganado}
-            formato={(c) => formatearConSigno(c)}
+            formato={formatearConSigno}
             className={`valor${p.ganado >= 0 ? ' lima' : ''}`}
             testId="ganado"
           />
@@ -140,11 +149,11 @@ function Resumen(p: {
         </div>
         <button type="button" className="celda tocable" onClick={() => p.onIr('mov-fianzas')}>
           <span className="etiqueta">En fianzas</span>
-          <CifraAnimada valor={p.fianzas} formato={(c) => formatearEuros(c)} className="valor" testId="fianzas" />
+          <CifraAnimada valor={p.fianzas} formato={formatearEuros} className="valor" testId="fianzas" />
         </button>
         <button type="button" className="celda tocable" onClick={() => p.onIr('mov-aportes')}>
           <span className="etiqueta">Aportes de {p.etiquetaAportante}</span>
-          <CifraAnimada valor={p.aportes} formato={(c) => formatearEuros(c)} className="valor" testId="aportes" />
+          <CifraAnimada valor={p.aportes} formato={formatearEuros} className="valor" testId="aportes" />
         </button>
       </div>
     </section>

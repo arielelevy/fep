@@ -389,9 +389,6 @@ button:disabled {
   font-weight: 800;
   width: 100%;
 }
-.ancho {
-  width: 100%;
-}
 
 /* ---------- Hoja modal (Registrar, PDF p. 2) ---------- */
 .capa {
@@ -844,6 +841,8 @@ button:disabled {
   position: relative;
   z-index: 1;
   transition: transform 180ms ease;
+  /* El desplazamiento horizontal lo gestiona la fila (deslizar para eliminar); el navegador sólo el vertical. */
+  touch-action: pan-y;
 }
 .mov-icono {
   width: 40px;

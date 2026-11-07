@@ -280,13 +280,15 @@ describe('Primer uso, estados y guía de instalación', () => {
     await user.type(within(hoja).getByLabelText('Efectivo'), '300');
     await user.type(within(hoja).getByLabelText('Banco'), '1200');
     await user.click(within(hoja).getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(valor('en-caja')).toBe(150000));
+    // 5 s: con la PC cargada (QA, revisores y pruebas a la vez) el guardado en IndexedDB pasaba el segundo por defecto
+    // y la prueba fallaba de forma intermitente (frente B 1 de 8; QA de la ola 2).
+    await waitFor(() => expect(valor('en-caja')).toBe(150000), { timeout: 5000 });
     expect(valor('ganado')).toBe(0);
     expect(within(pasos).getByRole('checkbox', { name: /Añade tu dinero actual/ }).getAttribute('aria-checked')).toBe('true');
 
     await user.click(within(pasos).getByRole('checkbox', { name: /primer cliente/ }));
     await user.click(within(pasos).getByRole('checkbox', { name: /Activa los avisos/ }));
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Para empezar' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Para empezar' })).toBeNull(), { timeout: 5000 });
   });
 
   it('Hoy sin visitas muestra su estado vacío', async () => {

@@ -42,6 +42,9 @@ export const MEDIOS_PAGO: { id: MedioPago; nombre: string }[] = [
   { id: 'transferencia', nombre: 'Transferencia' },
 ];
 
+/** Texto de la barra Deshacer al eliminar. En esta ola sólo se registran gastos y el saldo inicial. */
+export const etiquetaEliminado = (tipo: TipoMovimiento) => (tipo === 'saldo_inicial' ? 'Saldo eliminado' : 'Gasto eliminado');
+
 export interface Movimiento extends Comunes {
   tipo: TipoMovimiento;
   importe: number; // céntimos, siempre positivo; el signo lo da el tipo

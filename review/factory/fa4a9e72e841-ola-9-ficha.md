@@ -1,10 +1,14 @@
-# Ola 9: Migración a app nativa Android
+# Ola 9: Documentar el pasaje a app nativa Android
 
 Objetivo: FERGO · Especificación funcional y de diseño de la app de gestión
 
 Ficha escrita por Factory desde el registro de progreso de la ola (propuesta sin Markdown).
 
-## Alcance
+## Cambio de alcance
+
+Ariel 2026-11-06: la app se queda en React (PWA). Esta ola solo documenta el pasaje a nativo con Capacitor en `docs/migracion-android.md`; no se agrega Capacitor, no se crea el proyecto Android ni se genera el APK. Las features de abajo quedan como plan para cuando se decida ejecutar la migración.
+
+## Alcance original
 
 Ariel 2026-11-06: pasar la app a nativa antes de la ola 3. Se envuelve con Capacitor la app React de la ola 2 para conservar código, pantallas, datos y pruebas, y sale un APK instalable. Las olas siguientes se construyen sobre la app nativa.
 

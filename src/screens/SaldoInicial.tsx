@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { useDeshacer } from '../components/Deshacer';
 import { guardarSaldoInicial } from '../db/repo';
 import { formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
+import { useCerrojo } from '../lib/hooks';
 
 // Saldo inicial (§9.3), paso 1 de la bienvenida de primer uso (§10.1.3).
 // Construido con el estilo de la hoja Registrar (PDF p. 2): cabecera con cerrar, filas blancas, botón lima.
@@ -11,19 +12,21 @@ export function SaldoInicial({ onCerrar }: { onCerrar: () => void }) {
   const [efectivo, setEfectivo] = useState('');
   const [banco, setBanco] = useState('');
   const [error, setError] = useState('');
+  const cerrojo = useCerrojo(); // evita guardar dos veces el saldo con un doble toque
 
   const cEfectivo = efectivo ? parsearImporte(efectivo) : 0;
   const cBanco = banco ? parsearImporte(banco) : 0;
   const valido = cEfectivo !== null && cBanco !== null && (efectivo !== '' || banco !== '');
 
   const guardar = async () => {
-    if (!valido) return;
+    if (!valido || !cerrojo.tomar()) return;
     try {
       const r = await guardarSaldoInicial(cEfectivo ?? 0, cBanco ?? 0);
       onCerrar();
       mostrar('Saldo guardado', r.deshacer);
     } catch (e) {
       console.error(e);
+      cerrojo.soltar();
       setError('No se pudo guardar. Lo que has escrito sigue aquí; vuelve a intentarlo.');
     }
   };
@@ -72,7 +75,7 @@ export function SaldoInicial({ onCerrar }: { onCerrar: () => void }) {
           )}
         </div>
         <footer className="hoja-pie">
-          <button type="button" className="boton-principal tocable" disabled={!valido} onClick={guardar}>
+          <button type="button" className="boton-principal tocable" disabled={!valido || cerrojo.ocupado} onClick={guardar}>
             Guardar
           </button>
         </footer>

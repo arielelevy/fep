@@ -84,6 +84,14 @@ export function sumarDias(clave: string, dias: number): string {
   return `${t.getUTCFullYear()}-${dos(t.getUTCMonth() + 1)}-${dos(t.getUTCDate())}`;
 }
 
+/** Un movimiento puede registrarse como previsto hasta 7 días en el futuro (§10.2). */
+export const DIAS_FUTURO_MAX = 7;
+
+/** Última fecha (clave de día) que admite Registrar a partir de hoy. */
+export function fechaMaximaRegistro(hoy: string): string {
+  return sumarDias(hoy, DIAS_FUTURO_MAX);
+}
+
 /** "Domingo, 11 de octubre" */
 export function fechaLarga(instante: Date | string | number): string {
   const p = partesMadrid(instante);

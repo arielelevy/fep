@@ -83,67 +83,67 @@ export async function crearMovimiento(d: DatosMovimiento): Promise<{ movimiento:
   return { movimiento, deshacer: () => marcarEliminado(movimiento.id, usuario) };
 }
 
-async function marcarEliminado(id: string, usuario: string) {
-  const m = await db.movimientos.get(id);
-  if (!m) return;
-  await db.movimientos.put({
-    ...m,
-    eliminado_en: new Date().toISOString(),
-    actualizado_en: new Date().toISOString(),
-    modificado_por: usuario,
-    version: m.version + 1,
+/** Borrado lógico (o su deshacer, con null): lee y escribe en una transacción y deja la auditoría. */
+async function fijarEliminado(id: string, usuario: string, eliminado_en: string | null) {
+  await db.transaction('rw', db.movimientos, async () => {
+    const m = await db.movimientos.get(id);
+    if (!m) return;
+    await db.movimientos.put({
+      ...m,
+      eliminado_en,
+      actualizado_en: new Date().toISOString(),
+      modificado_por: usuario,
+      version: m.version + 1,
+    });
   });
 }
+
+const marcarEliminado = (id: string, usuario: string) => fijarEliminado(id, usuario, new Date().toISOString());
 
 export async function editarMovimiento(
   id: string,
   cambios: Partial<DatosMovimiento>,
 ): Promise<{ movimiento: Movimiento; deshacer: Deshacer }> {
   const { usuario } = await contexto();
-  const anterior = await db.movimientos.get(id);
-  if (!anterior) throw new Error('Movimiento no encontrado');
-  const cat = 'categoria_id' in cambios ? await categoria(cambios.categoria_id ?? null) : undefined;
-  const movimiento: Movimiento = {
-    ...anterior,
-    ...cambios,
-    nota: cambios.nota !== undefined ? cambios.nota.trim() : anterior.nota,
-    es_inversion: cat ? cat.es_inversion : anterior.es_inversion,
-    actualizado_en: new Date().toISOString(),
-    modificado_por: usuario,
-    version: anterior.version + 1,
-  };
-  validar(movimiento);
-  await db.movimientos.put(movimiento);
+  // Lectura y escritura en una transacción: dos ediciones seguidas no se pisan la versión.
+  const { anterior, movimiento } = await db.transaction('rw', db.movimientos, db.categorias, async () => {
+    const anterior = await db.movimientos.get(id);
+    if (!anterior) throw new Error('Movimiento no encontrado');
+    const cat = 'categoria_id' in cambios ? await categoria(cambios.categoria_id ?? null) : undefined;
+    const movimiento: Movimiento = {
+      ...anterior,
+      ...cambios,
+      nota: cambios.nota !== undefined ? cambios.nota.trim() : anterior.nota,
+      es_inversion: cat ? cat.es_inversion : anterior.es_inversion,
+      actualizado_en: new Date().toISOString(),
+      modificado_por: usuario,
+      version: anterior.version + 1,
+    };
+    validar(movimiento);
+    await db.movimientos.put(movimiento);
+    return { anterior, movimiento };
+  });
   return {
     movimiento,
-    deshacer: async () => {
-      const actual = await db.movimientos.get(id);
-      await db.movimientos.put({
-        ...anterior,
-        actualizado_en: new Date().toISOString(),
-        modificado_por: usuario,
-        version: (actual?.version ?? movimiento.version) + 1,
-      });
-    },
+    deshacer: () =>
+      db.transaction('rw', db.movimientos, async () => {
+        const actual = await db.movimientos.get(id);
+        await db.movimientos.put({
+          ...anterior,
+          // Deshacer la edición no resucita un movimiento eliminado después.
+          eliminado_en: actual?.eliminado_en ?? anterior.eliminado_en,
+          actualizado_en: new Date().toISOString(),
+          modificado_por: usuario,
+          version: (actual?.version ?? movimiento.version) + 1,
+        });
+      }),
   };
 }
 
 export async function eliminarMovimiento(id: string): Promise<{ deshacer: Deshacer }> {
   const { usuario } = await contexto();
   await marcarEliminado(id, usuario);
-  return {
-    deshacer: async () => {
-      const m = await db.movimientos.get(id);
-      if (!m) return;
-      await db.movimientos.put({
-        ...m,
-        eliminado_en: null,
-        actualizado_en: new Date().toISOString(),
-        modificado_por: usuario,
-        version: m.version + 1,
-      });
-    },
-  };
+  return { deshacer: () => fijarEliminado(id, usuario, null) };
 }
 
 /** Saldo inicial (§9.3): un movimiento por efectivo y otro por banco; cuenta en caja, no en Ganado. */

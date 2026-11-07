@@ -8,9 +8,10 @@ import { db } from '../db/db';
 import { borrarAjuste, crearMovimiento, editarMovimiento, eliminarMovimiento, guardarAjuste, guardarFoto } from '../db/repo';
 import { esImporteAtipico } from '../domain/cifras';
 import { ordenarCategoriasGasto } from '../domain/ordenCategorias';
-import { MEDIOS_PAGO, type Categoria, type MedioPago, type Movimiento } from '../domain/tipos';
+import { MEDIOS_PAGO, etiquetaEliminado, type Categoria, type MedioPago, type Movimiento } from '../domain/tipos';
 import { centimosATexto, formatearEuros, formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
-import { claveDia, etiquetaFechaCorta, instanteDeClaveDia, sumarDias } from '../lib/fechas';
+import { claveDia, etiquetaFechaCorta, fechaMaximaRegistro, instanteDeClaveDia } from '../lib/fechas';
+import { useCerrojo } from '../lib/hooks';
 import { comprimirTicket } from '../lib/imagen';
 
 // Hoja "Nuevo movimiento" (§10.2), construida contra el mockup "2. Registrar" (PDF p. 2, docs/maqueta.md §1.2).
@@ -75,6 +76,8 @@ export function Registrar({
   const [confirmar, setConfirmar] = useState<null | 'descartar' | 'atipico' | 'eliminar'>(null);
   const [infoCliente, setInfoCliente] = useState(false);
   const [error, setError] = useState('');
+  const cerrojo = useCerrojo(); // evita dobles guardados con un doble toque
+  const fotoGuardada = useRef<{ blob: Blob; id: string } | null>(null); // reintento sin fotos huérfanas
   const cerrando = useRef(false);
   const inputImporte = useRef<HTMLInputElement>(null);
 
@@ -98,16 +101,27 @@ export function Registrar({
   useEffect(() => {
     if (!fotoExistente) return;
     let url: string | null = null;
+    let activo = true;
     db.fotos.get(fotoExistente).then((f) => {
-      if (f && typeof URL.createObjectURL === 'function') {
+      if (activo && f && typeof URL.createObjectURL === 'function') {
         url = URL.createObjectURL(f.blob);
         setFotoExistenteUrl(url);
       }
     });
     return () => {
+      activo = false;
       if (url) URL.revokeObjectURL(url);
     };
   }, [fotoExistente]);
+
+  // La miniatura de la foto nueva se libera al cambiarla (elegirFoto) o al cerrar la hoja.
+  const fotoUrl = foto?.url;
+  useEffect(
+    () => () => {
+      if (fotoUrl) URL.revokeObjectURL(fotoUrl);
+    },
+    [fotoUrl],
+  );
 
   // Borrador (§5.1.6): se guarda en local en cada cambio de un gasto nuevo.
   useEffect(() => {
@@ -123,6 +137,9 @@ export function Registrar({
   const hayDatos = Boolean(textoImporte || categoriaId || nota || foto);
   const esGasto = esSaldo || tipo === 'gasto';
   const puedeGuardar = esGasto && importe !== null && importe > 0 && (esSaldo || Boolean(categoriaId));
+  const fechaMax = fechaMaximaRegistro(hoy);
+  // Al editar, un importe ya confirmado no vuelve a preguntar si no cambian importe ni categoría.
+  const sinCambiosDeImporte = editar && importe === editar.importe && categoriaId === editar.categoria_id;
 
   const cerrarSinGuardar = async () => {
     cerrando.current = true;
@@ -142,14 +159,27 @@ export function Registrar({
   };
 
   const guardar = async (forzar = false) => {
-    if (!puedeGuardar || importe === null || !datos) return;
-    if (!esSaldo && !forzar && categoriaId && esImporteAtipico(importe, categoriaId, datos.movimientos, editar?.id)) {
+    if (!puedeGuardar || importe === null || !datos || cerrojo.ocupado) return;
+    if (
+      !esSaldo &&
+      !forzar &&
+      !sinCambiosDeImporte &&
+      categoriaId &&
+      esImporteAtipico(importe, categoriaId, datos.movimientos, editar?.id)
+    ) {
       setConfirmar('atipico');
       return;
     }
+    if (!cerrojo.tomar()) return;
     setError('');
     try {
-      const fotoId = foto ? await guardarFoto(foto.blob) : fotoExistente;
+      let fotoId = fotoExistente;
+      if (foto) {
+        if (fotoGuardada.current?.blob !== foto.blob) {
+          fotoGuardada.current = { blob: foto.blob, id: await guardarFoto(foto.blob) };
+        }
+        fotoId = fotoGuardada.current.id;
+      }
       const comunes = { importe, fecha: fechaFinal(), medio_pago: medio, nota, foto_id: fotoId };
       cerrando.current = true;
       if (editar) {
@@ -165,6 +195,7 @@ export function Registrar({
     } catch (e) {
       console.error(e);
       cerrando.current = false;
+      cerrojo.soltar();
       setError('No se pudo guardar. Lo que has escrito sigue aquí; vuelve a intentarlo.');
     }
   };
@@ -174,7 +205,7 @@ export function Registrar({
     try {
       const r = await eliminarMovimiento(editar.id);
       onCerrar();
-      mostrar(esSaldo ? 'Saldo eliminado' : 'Gasto eliminado', r.deshacer);
+      mostrar(etiquetaEliminado(editar.tipo), r.deshacer);
     } catch (e) {
       console.error(e);
       setError('No se pudo eliminar. Vuelve a intentarlo.');
@@ -185,10 +216,7 @@ export function Registrar({
     if (!archivo) return;
     const blob = await comprimirTicket(archivo);
     const url = typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : '';
-    setFoto((anterior) => {
-      if (anterior?.url) URL.revokeObjectURL(anterior.url);
-      return { blob, url };
-    });
+    setFoto({ blob, url });
     setFotoExistente(null);
   };
 
@@ -296,8 +324,8 @@ export function Registrar({
                     type="date"
                     aria-labelledby="etq-fecha"
                     value={fechaClave}
-                    max={sumarDias(hoy, 7)}
-                    onChange={(e) => e.target.value && setFechaClave(e.target.value)}
+                    max={fechaMax}
+                    onChange={(e) => e.target.value && e.target.value <= fechaMax && setFechaClave(e.target.value)}
                   />
                 </div>
                 {fechaFutura && <p className="aviso-fila">¿Es un gasto previsto? Lo guardo con fecha {etiquetaFechaCorta(fechaClave).toLowerCase()}.</p>}
@@ -373,7 +401,7 @@ export function Registrar({
               />
             </label>
           )}
-          <button type="button" className="boton-principal tocable" disabled={!puedeGuardar} onClick={() => guardar()}>
+          <button type="button" className="boton-principal tocable" disabled={!puedeGuardar || cerrojo.ocupado} onClick={() => guardar()}>
             {textoGuardar}
           </button>
         </footer>

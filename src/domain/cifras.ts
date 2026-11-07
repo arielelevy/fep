@@ -5,7 +5,7 @@ import type { MedioPago, Movimiento, TipoMovimiento } from './tipos';
 
 const ENTRADAS: TipoMovimiento[] = ['cobro', 'anticipo', 'otro_ingreso', 'aporte', 'prestamo', 'fianza_devuelta', 'saldo_inicial'];
 const SALIDAS: TipoMovimiento[] = ['gasto', 'devolucion_prestamo', 'fianza_entregada'];
-const INGRESOS_NEGOCIO: TipoMovimiento[] = ['cobro', 'anticipo', 'otro_ingreso'];
+export const INGRESOS_NEGOCIO: TipoMovimiento[] = ['cobro', 'anticipo', 'otro_ingreso'];
 
 export const activos = (movs: Movimiento[]) => movs.filter((m) => !m.eliminado_en);
 

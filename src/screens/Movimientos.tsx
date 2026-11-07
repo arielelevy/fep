@@ -1,14 +1,14 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ChartColumn, ChevronLeft, ChevronRight, Heart, Lock } from 'lucide-react';
 import { CifraAnimada } from '../components/CifraAnimada';
 import { Icono } from '../components/Icono';
 import { useDeshacer } from '../components/Deshacer';
 import { useDatos } from '../db/datos';
 import { eliminarMovimiento } from '../db/repo';
-import { resumenMes } from '../domain/cifras';
-import { MEDIOS_PAGO, type Categoria, type Movimiento, type TipoMovimiento } from '../domain/tipos';
+import { INGRESOS_NEGOCIO, resumenMes } from '../domain/cifras';
+import { MEDIOS_PAGO, etiquetaEliminado, type Categoria, type Movimiento, type TipoMovimiento } from '../domain/tipos';
 import { formatearConSigno, formatearEuros } from '../lib/dinero';
-import { claveDia, claveMes, encabezadoDia, mesConMayuscula, nombreMes, sumarMeses } from '../lib/fechas';
+import { claveDia, claveMes, encabezadoDia, fechaMaximaRegistro, mesConMayuscula, nombreMes, sumarMeses } from '../lib/fechas';
 import { local, useEnLinea } from '../lib/hooks';
 import { BandaSinConexion } from './Hoy';
 
@@ -19,7 +19,7 @@ export type Filtro = 'todos' | 'cobros' | 'gastos' | 'aportes' | 'fianzas';
 
 const FILTROS: { id: Filtro; nombre: string; tipos?: TipoMovimiento[] }[] = [
   { id: 'todos', nombre: 'Todos' },
-  { id: 'cobros', nombre: 'Cobros', tipos: ['cobro', 'anticipo', 'otro_ingreso'] },
+  { id: 'cobros', nombre: 'Cobros', tipos: INGRESOS_NEGOCIO },
   { id: 'gastos', nombre: 'Gastos', tipos: ['gasto'] },
   { id: 'aportes', nombre: 'Aportes', tipos: ['aporte', 'prestamo', 'devolucion_prestamo'] },
   { id: 'fianzas', nombre: 'Fianzas', tipos: ['fianza_entregada', 'fianza_devuelta'] },
@@ -46,6 +46,8 @@ export function Movimientos({
   const datos = useDatos();
   const enLinea = useEnLinea();
   const mesActual = claveMes(new Date());
+  // Registrar admite fechas futuras: el selector llega hasta ese mes para poder verlas y editarlas.
+  const mesMaximo = fechaMaximaRegistro(claveDia(new Date())).slice(0, 7);
   const [mes, setMes] = useState(mesActual);
   const [filtro, setFiltroEstado] = useState<Filtro>(filtroInicial ?? filtroGuardado());
   const setFiltro = (f: Filtro) => {
@@ -53,17 +55,24 @@ export function Movimientos({
     local.escribir(CLAVE_FILTRO, f); // se recuerda en el dispositivo (§10.3.3)
   };
 
-  const tipos = FILTROS.find((f) => f.id === filtro)!.tipos;
-  const delMes = (datos?.movimientos ?? [])
-    .filter((m) => claveMes(m.fecha) === mes && (!tipos || tipos.includes(m.tipo)))
-    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado_en.localeCompare(a.creado_en));
-  const porDia = new Map<string, Movimiento[]>();
-  for (const m of delMes) {
-    const k = claveDia(m.fecha);
-    porDia.set(k, [...(porDia.get(k) ?? []), m]);
-  }
-  const resumen = datos ? resumenMes(datos.movimientos, mes) : null;
-  const categorias = new Map((datos?.categorias ?? []).map((c) => [c.id, c]));
+  // Se recalcula sólo cuando cambian los datos, el mes o el filtro (no al abrir o cerrar una hoja).
+  const movimientos = datos?.movimientos;
+  const { delMes, porDia } = useMemo(() => {
+    const tipos = FILTROS.find((f) => f.id === filtro)!.tipos;
+    const delMes = (movimientos ?? [])
+      .filter((m) => claveMes(m.fecha) === mes && (!tipos || tipos.includes(m.tipo)))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado_en.localeCompare(a.creado_en));
+    const porDia = new Map<string, Movimiento[]>();
+    for (const m of delMes) {
+      const k = claveDia(m.fecha);
+      const dia = porDia.get(k);
+      if (dia) dia.push(m);
+      else porDia.set(k, [m]);
+    }
+    return { delMes, porDia };
+  }, [movimientos, mes, filtro]);
+  const resumen = useMemo(() => (movimientos ? resumenMes(movimientos, mes) : null), [movimientos, mes]);
+  const categorias = useMemo(() => new Map((datos?.categorias ?? []).map((c) => [c.id, c])), [datos?.categorias]);
 
   return (
     <main className="pantalla" aria-labelledby="titulo-mov">
@@ -82,7 +91,7 @@ export function Movimientos({
             type="button"
             className="tocable"
             aria-label="Mes siguiente"
-            disabled={mes >= mesActual}
+            disabled={mes >= mesMaximo}
             onClick={() => setMes(sumarMeses(mes, 1))}
           >
             <ChevronRight size={22} aria-hidden="true" />
@@ -100,11 +109,11 @@ export function Movimientos({
           <>
             <div className="tarjeta-mes">
               <span className="etiqueta">Cobrado</span>
-              <CifraAnimada valor={resumen.cobrado} formato={(c) => formatearConSigno(c)} className="valor positivo" testId="cobrado-mes" />
+              <CifraAnimada valor={resumen.cobrado} formato={formatearConSigno} className="valor positivo" testId="cobrado-mes" />
             </div>
             <div className="tarjeta-mes">
               <span className="etiqueta">Gastado</span>
-              <CifraAnimada valor={-resumen.gastado} formato={(c) => formatearEuros(c)} className="valor" testId="gastado-mes" />
+              <CifraAnimada valor={-resumen.gastado} formato={formatearEuros} className="valor" testId="gastado-mes" />
               {resumen.inversion > 0 && <span className="extra">Más {formatearEuros(resumen.inversion)} en equipo</span>}
             </div>
           </>
@@ -204,8 +213,13 @@ function FilaMovimiento({
   const p = presentacion(m, categoria, etiquetaAportante);
 
   const eliminar = async () => {
-    const r = await eliminarMovimiento(m.id);
-    mostrar(m.tipo === 'saldo_inicial' ? 'Saldo eliminado' : 'Gasto eliminado', r.deshacer);
+    try {
+      const r = await eliminarMovimiento(m.id);
+      mostrar(etiquetaEliminado(m.tipo), r.deshacer);
+    } catch (e) {
+      console.error(e);
+      mostrar('No se pudo eliminar. Vuelve a intentarlo.');
+    }
   };
 
   return (
