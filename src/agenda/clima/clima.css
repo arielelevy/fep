@@ -1,0 +1,224 @@
+/* Clima y semáforo en Agenda, Hoy y Detalle de visita (ola 6, frente B).
+   Spec: §10.5 (franja de 14 días, línea de semáforo), §10.6 (semáforo grande), §11.4 (textos), §5.6 (accesibilidad).
+   Tokens de src/styles/tokens.css (§6.1). Unidades rem para respetar el tamaño de texto del sistema hasta 130 %.
+   El estado siempre va en palabras; el punto de color sólo acompaña (§5.6.3). */
+
+/* ---------- Línea de semáforo (tarjetas de Agenda y Hoy) ---------- */
+.linea-semaforo {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--texto-3);
+  min-width: 0;
+}
+.linea-semaforo .punto-semaforo {
+  margin-top: 0.22em;
+}
+.linea-semaforo .estado {
+  font-weight: 700;
+  color: var(--texto-2);
+}
+.linea-semaforo .detalle {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.linea-semaforo .textos-semaforo {
+  min-width: 0;
+}
+.linea-semaforo.cargando .esqueleto {
+  display: inline-block;
+  width: 9rem;
+  max-width: 70%;
+  height: 0.8rem;
+  border-radius: 6px;
+}
+.consejo-semaforo {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--texto-3);
+}
+
+/* Punto: color por nivel; gris y orientativo con contorno para no depender del color. */
+.punto-semaforo {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--texto-3);
+}
+.punto-semaforo[data-nivel='verde'] {
+  background: var(--verde-punto);
+}
+.punto-semaforo[data-nivel='ambar'] {
+  background: var(--ambar-punto);
+}
+.punto-semaforo[data-nivel='rojo'] {
+  background: var(--rojo);
+}
+.punto-semaforo[data-nivel='gris'] {
+  background: transparent;
+  border: 2px solid var(--texto-3);
+}
+.punto-semaforo[data-nivel='orientativo'] {
+  background: transparent;
+  border: 2px dashed var(--texto-3);
+}
+
+/* ---------- Semáforo grande (Detalle de visita, §10.6.3) ---------- */
+.semaforo-detalle .cabeza {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.semaforo-detalle .punto-semaforo {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+.semaforo-detalle .estado-grande {
+  display: block;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--texto);
+}
+.semaforo-detalle .motivo {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+.semaforo-detalle .datos-franja {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.semaforo-detalle .dato {
+  background: var(--fondo-apagado);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+.semaforo-detalle .dato .nombre {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--texto-3);
+}
+.semaforo-detalle .dato .valor {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--texto);
+}
+.semaforo-detalle .consejo {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--lima-suave);
+  color: var(--verde-oscuro);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.semaforo-detalle[data-nivel='ambar'] .consejo,
+.semaforo-detalle[data-nivel='rojo'] .consejo {
+  background: var(--ambar-fondo);
+  color: var(--ambar-texto);
+}
+.semaforo-detalle .pie-semaforo {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+.semaforo-detalle .esqueleto {
+  height: 28px;
+  border-radius: 8px;
+}
+
+/* ---------- Franja de 14 días (§10.5.2) ---------- */
+.tiempo-dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-top: 2px;
+  line-height: 1.15;
+}
+.tiempo-dia .icono-tiempo {
+  color: var(--verde-medio);
+}
+.tiempo-dia .max {
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.tiempo-dia .lluvia {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--azul);
+}
+.tiempo-dia .sin-dato {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+/* Días 8–14 atenuados sin bajar de 4,5:1 (texto-3 sobre fondo, ≈ 5,7:1). */
+.dia-franja.orientativo .tiempo-dia .icono-tiempo,
+.dia-franja.orientativo .tiempo-dia .lluvia,
+.dia-franja.orientativo .tiempo-dia .max {
+  color: var(--texto-3);
+}
+.dia-franja[aria-checked='true'] .tiempo-dia .icono-tiempo,
+.dia-franja[aria-checked='true'] .tiempo-dia .lluvia,
+.dia-franja[aria-checked='true'] .tiempo-dia .max,
+.dia-franja[aria-checked='true'] .tiempo-dia .sin-dato {
+  color: #fff;
+}
+/* Día con alguna visita en rojo: contorno interior rojo de 2 pt (§10.5.2). */
+.dia-franja.con-rojo {
+  box-shadow: inset 0 0 0 2px var(--rojo);
+}
+.dia-franja.con-rojo[aria-checked='true'] {
+  box-shadow: inset 0 0 0 2px var(--rojo), inset 0 0 0 4px #fff;
+}
+
+/* Botón «i» del separador ORIENTATIVO y nota explicativa. */
+.franja-separador .info-orientativo {
+  width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--texto-3);
+  border-radius: 12px;
+}
+.nota-orientativa {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--fondo-apagado);
+  color: var(--texto-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.nota-orientativa svg {
+  flex: none;
+  margin-top: 1px;
+}
+.pie-franja {
+  margin: -2px 0 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}

@@ -207,9 +207,9 @@ describe('Agenda · franja de 14 días (§10.5)', () => {
     await user.click(within(a).getByText('Fam. García'));
     expect(props.onAbrirVisita).toHaveBeenCalledWith(pronto.id);
 
-    // Días 8–14: previsión orientativa.
+    // Días 8–14: sin semáforo, sólo «Previsión orientativa» (ola 6: motor de src/clima, línea de src/agenda/clima).
     await user.click(screen.getByRole('radio', { name: 'Martes 17, con visitas, orientativo' }));
-    expect(screen.getByText('Sin previsión · Previsión orientativa')).toBeTruthy();
+    expect(await screen.findByText('Previsión orientativa')).toBeTruthy();
   });
 
   it('hechas y canceladas llevan su estado con texto; las de serie muestran la periodicidad', async () => {
@@ -379,7 +379,7 @@ describe('Detalle de visita (§10.6)', () => {
   const clienteCompleto = () =>
     nuevoCliente({ nombre: 'Fam. García', telefono: '+34611566779', direccion: 'Calle Mayor 3', municipio: 'Rivas-Vaciamadrid', lat: 40.3567, lon: -3.5321 });
 
-  it('datos, tiempo «Sin previsión» y acciones con enlaces reales (Google Maps en Android)', async () => {
+  it('datos, tiempo de la visita y acciones con enlaces reales (Google Maps en Android)', async () => {
     const c = await clienteCompleto();
     const v = await nuevaVisita(c.id, { descripcion: 'Poda de setos', requiere_vehiculo: true });
     const { props, user } = detalle(v.id);
@@ -391,8 +391,9 @@ describe('Detalle de visita (§10.6)', () => {
     expect(screen.getByText('150 €')).toBeTruthy();
     expect(screen.getByText('Necesita furgoneta')).toBeTruthy();
     const tiempo = screen.getByRole('region', { name: 'Tiempo de la visita' });
-    expect(within(tiempo).getByText('Sin previsión')).toBeTruthy();
-    expect(within(tiempo).getByText('El tiempo llega en la próxima versión.')).toBeTruthy();
+    // Ola 6: con coordenadas, semáforo del motor (proveedor simulado en pruebas) y no un hueco «Sin previsión».
+    await waitFor(() => expect(tiempo.textContent).toMatch(/Se puede ir|Con cuidado|Mejor mover/));
+    expect(tiempo.textContent).toContain('Datos de prueba');
 
     expect(screen.getByRole('link', { name: 'Llamar' }).getAttribute('href')).toBe('tel:+34611566779');
     expect(screen.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')).toBe('https://wa.me/34611566779');

@@ -11,12 +11,13 @@ import { useCerrojo, useEnLinea } from '../lib/hooks';
 import { urlComoLlegar } from '../lib/mapas';
 import { BandaSinConexion } from './Hoy';
 import { MoverVisita } from './MoverVisita';
+import { SemaforoDetalle } from '../agenda/clima/SemaforoDetalle';
 import '../styles/clientes.css';
 import '../styles/agenda.css';
 
 // Detalle de visita (§10.6). No tiene maqueta (docs/maqueta.md §4.1, H3): mismo estilo que la ficha de cliente
-// (PDF p. 4: enlace «‹ …» C24, acciones rápidas C28, tarjetas) y que la Agenda (PDF p. 5). El tiempo es de otra
-// ola: semáforo grande gris «Sin previsión» (§11.3).
+// (PDF p. 4: enlace «‹ …» C24, acciones rápidas C28, tarjetas) y que la Agenda (PDF p. 5). «Tiempo de la visita»
+// (§10.6.3, ola 6 frente B): semáforo grande con motivo, datos de la franja, consejo y hora de actualización.
 
 const NOMBRE_MOTIVO: Record<MotivoReprogramacion, string> = { clima: 'clima', cliente: 'cliente', propio: 'propio', otro: 'otro' };
 
@@ -179,18 +180,7 @@ export function VisitaDetalle({
         {movida && <p className="secundario">{movida}</p>}
       </section>
 
-      <section className="tarjeta detalle-tarjeta" aria-labelledby="tiempo-visita">
-        <h2 className="etiqueta-seccion" id="tiempo-visita">
-          Tiempo de la visita
-        </h2>
-        <div className="semaforo-grande">
-          <span className="punto" aria-hidden="true" />
-          <div>
-            <span className="estado">Sin previsión</span>
-            <p className="secundario">El tiempo llega en la próxima versión.</p>
-          </div>
-        </div>
-      </section>
+      <SemaforoDetalle visita={v} cliente={cliente} visitas={datos.visitas} />
 
       {editable && programada && (
         <div className="acciones-visita">

@@ -26,6 +26,8 @@ import { formatearConSigno, formatearEuros } from '../lib/dinero';
 import { claveDia, claveMes, fechaLarga, nombreMes } from '../lib/fechas';
 import { useCerrojo, useEnLinea } from '../lib/hooks';
 import { HojaHecho, type ModoHecho } from './HojaHecho';
+import { LineaSemaforo } from '../agenda/clima/LineaSemaforo';
+import { huecoLibrePara } from '../agenda/clima/semaforoVisita';
 import paquete from '../../package.json?raw';
 import '../styles/hoy.css';
 
@@ -234,6 +236,8 @@ function VisitasDeHoy({ ahora, onIr, onHoja }: { ahora: Date; onIr: (d: DestinoH
                   <span className="textos">
                     <span className="cliente">{nombre}</span>
                     <span className="linea">{lineaVisita(v, cliente, datos.deudas, datos.movimientos)}</span>
+                    {/* Línea de semáforo (§10.1.1.4, ola 6 frente B): punto + estado en palabras. */}
+                    {v.estado === 'programada' && <LineaSemaforo visita={v} cliente={cliente} huecoLibre={huecoLibrePara(v, datos.visitas)} />}
                     {hecha && <span className="estado-hecha">Hecha</span>}
                   </span>
                 </button>

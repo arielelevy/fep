@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
-import { BookUser, ChevronDown, MapPin, X } from 'lucide-react';
+import { BookUser, ChevronDown, X } from 'lucide-react';
 import { Dialogo } from '../components/Dialogo';
 import { useDeshacer } from '../components/Deshacer';
 import { crearCliente, editarCliente, normalizarTelefono, type DatosCliente } from '../db/repo';
@@ -7,6 +7,8 @@ import { TIPOS_TRABAJO, type Cliente, type Frecuencia, type Modalidad, type Serv
 import { DIAS_CORTOS, DIAS_LARGOS } from '../lib/fechas';
 import { centimosATexto, formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
 import { useCerrojo } from '../lib/hooks';
+import { UbicacionFormulario } from '../clientes/ubicacion/UbicacionCliente';
+import type { Coordenadas } from '../geocodificacion';
 import '../styles/clientes.css';
 
 // Formulario Nuevo / Editar cliente (§10.4.3). No tiene maqueta: hoja modal a pantalla completa con el estilo
@@ -118,6 +120,10 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
   const [tocados, setTocados] = useState<Record<string, boolean>>({});
   const [error, setError] = useState('');
   const [descartar, setDescartar] = useState(false);
+  // Coordenadas del cliente (§8.2): geocodificación simulada y chincheta corregible (ola 6, frente B).
+  const [coords, setCoords] = useState<Coordenadas | null>(() =>
+    cliente && cliente.lat !== null && cliente.lon !== null ? { lat: cliente.lat, lon: cliente.lon } : null,
+  );
   const elegirContacto = useMemo(selectorContactos, []);
 
   const poner = <K extends keyof Borrador>(clave: K, valor: Borrador[K]) => setB((x) => ({ ...x, [clave]: valor }));
@@ -152,8 +158,8 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
     if (!valido || !cerrojo.tomar()) return;
     const direccion = b.direccion.trim();
     const municipio = b.municipio.trim();
-    // Sin geocodificación en esta ola: si cambia la dirección, las coordenadas antiguas dejan de valer.
-    const mismaDireccion = cliente && cliente.direccion === direccion && cliente.municipio === municipio;
+    // Las coordenadas vienen de la sección Ubicación: si cambia la dirección se vuelven a buscar; sin conexión
+    // quedan vacías y el cliente se guarda igual (§14.1).
     const datos: DatosCliente = {
       nombre: b.nombre.trim(),
       tipo: b.tipo,
@@ -162,8 +168,8 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
       contacto: b.contacto.trim(),
       direccion,
       municipio,
-      lat: mismaDireccion ? cliente.lat : null,
-      lon: mismaDireccion ? cliente.lon : null,
+      lat: coords?.lat ?? null,
+      lon: coords?.lon ?? null,
       servicios: b.servicios,
       modalidad: b.modalidad!,
       cuota_abono: esAbono ? cuota : null,
@@ -338,11 +344,12 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
           </Seccion>
 
           <Seccion titulo="Ubicación">
-            <div className="cf-mapa" role="img" aria-label="Mapa sin conectar">
-              <MapPin size={28} aria-hidden="true" />
-              <p>Se usa para el tiempo de cada visita.</p>
-              <p className="secundario">El mapa con la chincheta llega cuando conectemos el servicio de mapas.</p>
-            </div>
+            <UbicacionFormulario
+              direccion={b.direccion}
+              municipio={b.municipio}
+              inicial={cliente && cliente.lat !== null && cliente.lon !== null ? { lat: cliente.lat, lon: cliente.lon } : null}
+              onCambio={setCoords}
+            />
           </Seccion>
 
           <Seccion titulo="Servicio">

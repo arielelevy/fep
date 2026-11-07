@@ -3,8 +3,11 @@
 // 1. Instala dependencias con `npm ci` si falta node_modules (copia limpia del repo).
 // 2. Comprueba tipos (tsc), 3. corre todas las pruebas (vitest), 4. hace el build de producción
 // y 5. comprueba que genera el manifiesto y el service worker de la PWA con lo que pide §4.1.
+// Ola 6: además corre cada carpeta tests/*/ con su propio vitest.config.ts y su tsconfig.json (vite.config.ts sólo
+// incluye src/**), cuenta sus pruebas y falla si alguna falla o si una carpeta no tiene pruebas.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,6 +36,42 @@ if (!existsSync(ruta('node_modules', 'vitest'))) {
 const node = process.execPath;
 correr('tipos (tsc)', node, ['node_modules/typescript/bin/tsc', '-p', '.']);
 correr('pruebas (vitest)', node, ['node_modules/vitest/vitest.mjs', 'run']);
+
+// ---------- Carpetas tests/*/ con configuración propia ----------
+const carpetasTests = existsSync(ruta('tests'))
+  ? readdirSync(ruta('tests'), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort()
+  : [];
+const recuento = [];
+const temporal = mkdtempSync(join(tmpdir(), 'fergo-verificar-'));
+try {
+  for (const c of carpetasTests) {
+    if (existsSync(ruta('tests', c, 'tsconfig.json'))) correr(`tipos de tests/${c} (tsc)`, node, ['node_modules/typescript/bin/tsc', '-p', `tests/${c}`]);
+    if (!existsSync(ruta('tests', c, 'vitest.config.ts'))) continue;
+    const informe = join(temporal, `${c}.json`);
+    correr(`pruebas de tests/${c} (vitest)`, node, [
+      'node_modules/vitest/vitest.mjs',
+      'run',
+      '--config',
+      `tests/${c}/vitest.config.ts`,
+      '--reporter=default',
+      '--reporter=json',
+      `--outputFile.json=${informe}`,
+    ]);
+    const r = JSON.parse(readFileSync(informe, 'utf8'));
+    if (!r.numTotalTests || r.numFailedTests || r.numPassedTests !== r.numTotalTests) {
+      console.error(`✗ tests/${c}: ${r.numPassedTests ?? 0} de ${r.numTotalTests ?? 0} pruebas pasan`);
+      process.exit(1);
+    }
+    recuento.push(`tests/${c}: ${r.numPassedTests} pruebas en ${r.testResults.length} archivos`);
+  }
+} finally {
+  rmSync(temporal, { recursive: true, force: true });
+}
+if (recuento.length) console.log(['', '✓ carpetas tests/*/:', ...recuento.map((r) => `  - ${r}`)].join('\n'));
+
 correr('build de producción (vite)', node, ['node_modules/vite/bin/vite.js', 'build', '--logLevel', 'warn']);
 
 console.log('\n▶ PWA: manifiesto y service worker');

@@ -12,6 +12,7 @@ import { MESES, claveDia, desdeMadrid, partesMadrid } from '../lib/fechas';
 import { horaDe } from '../domain/agenda';
 import { useEnLinea } from '../lib/hooks';
 import { urlComoLlegar } from '../lib/mapas';
+import { UbicacionFicha } from '../clientes/ubicacion/UbicacionCliente';
 import { ChipsServicio, resumirDeudas, textoModalidad } from './Clientes';
 import { BandaSinConexion } from './Hoy';
 import '../styles/clientes.css';
@@ -233,6 +234,9 @@ function Ficha({
       )}
 
       <Notas cliente={cliente} soloLectura={soloLectura} />
+
+      {/* Ubicación con chincheta (§10.4.3, §13.3; ola 6 frente B): se usa para el tiempo de cada visita. */}
+      <UbicacionFicha cliente={cliente} soloLectura={soloLectura} />
 
       <section className="tarjeta tarjeta-ficha" aria-labelledby="ficha-este-anio">
         <h2 id="ficha-este-anio" className="etiqueta-seccion">

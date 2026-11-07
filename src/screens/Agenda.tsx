@@ -8,13 +8,18 @@ import { formatearEuros } from '../lib/dinero';
 import { DIAS_CORTOS, DIAS_LARGOS, claveDia, diaSemanaDeClave, partesMadrid, sumarDias } from '../lib/fechas';
 import { useEnLinea } from '../lib/hooks';
 import { BandaSinConexion } from './Hoy';
+import { BotonInfoOrientativo, NotaOrientativa, TiempoDia, useDiasConRojo, useFranjaClima } from '../agenda/clima/FranjaClima';
+import { LineaSemaforo } from '../agenda/clima/LineaSemaforo';
+import { huecoLibrePara } from '../agenda/clima/semaforoVisita';
 import '../styles/clientes.css';
 import '../styles/agenda.css';
 
 // Pestaña Agenda (§10.5). Sigue la maqueta «5. Agenda» (PDF p. 5, docs/maqueta.md §1.5, componentes C33–C36)
 // con las correcciones de la especificación: franja de 14 días con separador «ORIENTATIVO» y días 8–14
-// atenuados, subtítulo «Tiempo de los próximos 14 días», campana y botón «+». El clima es de otra ola:
-// cada visita lleva la línea de semáforo gris «Sin previsión» (§11.3), sin iconos ni temperaturas.
+// atenuados, subtítulo «Tiempo de los próximos 14 días», campana y botón «+».
+// Ola 6 (frente B, §10.5 y §11): cada día de la franja lleva icono, máxima y lluvia (src/agenda/clima), el «i»
+// explica lo orientativo, los días con alguna visita «Mejor mover» llevan contorno rojo y cada tarjeta su línea
+// de semáforo calculada por el motor de src/clima.
 
 export const DIAS_FRANJA = 14;
 export const DIAS_FIABLES = 7;
@@ -80,6 +85,9 @@ export function Agenda({
 
   const orientativo = dias.indexOf(dia) >= DIAS_FIABLES;
   const delDia = datos ? visitasDelDia(datos.visitas, dia) : [];
+  const clima = useFranjaClima();
+  const conRojo = useDiasConRojo(datos?.visitas, datos?.clientes);
+  const [infoOrientativo, setInfoOrientativo] = useState(false);
 
   return (
     <main className="pantalla" aria-labelledby="titulo-agenda">
@@ -113,8 +121,9 @@ export function Agenda({
           return (
             <Fragment key={d}>
               {i === DIAS_FIABLES && (
-                <div className="franja-separador" aria-hidden="true">
-                  <span>ORIENTATIVO</span>
+                <div className="franja-separador">
+                  <span aria-hidden="true">ORIENTATIVO</span>
+                  <BotonInfoOrientativo abierta={infoOrientativo || orientativo} onAlternar={() => setInfoOrientativo((x) => !x)} />
                 </div>
               )}
               <button
@@ -122,18 +131,27 @@ export function Agenda({
                 role="radio"
                 aria-checked={d === dia}
                 aria-label={`${DIAS_LARGOS[ds]} ${n}${tiene ? ', con visitas' : ''}${atenuado ? ', orientativo' : ''}`}
-                className={`dia-franja tocable${atenuado ? ' orientativo' : ''}`}
+                aria-describedby={`tiempo-${d}`}
+                className={`dia-franja tocable${atenuado ? ' orientativo' : ''}${conRojo.has(d) ? ' con-rojo' : ''}`}
                 data-dia={d}
                 onClick={() => setDia(d)}
               >
                 <span className="corto">{DIAS_CORTOS[ds]}</span>
                 <span className="numero">{n}</span>
                 <span className={`punto${tiene ? '' : ' vacio'}`} aria-hidden="true" />
+                <TiempoDia dia={clima.porFecha.get(d)} />
+                <span className="sr-only" id={`tiempo-${d}`}>
+                  {clima.textoDia(d)}
+                  {conRojo.has(d) ? ', alguna visita mejor mover' : ''}
+                </span>
               </button>
             </Fragment>
           );
         })}
       </div>
+
+      {clima.actualizado && <p className="pie-franja">{clima.actualizado}</p>}
+      {(orientativo || infoOrientativo) && <NotaOrientativa />}
 
       <h2 className="titulo-seccion titulo-dia">{tituloDia(dia, hoy)}</h2>
 
@@ -160,7 +178,7 @@ export function Agenda({
               visita={v}
               cliente={datos.clientes.find((c) => c.id === v.cliente_id)}
               serie={datos.series.find((s) => s.id === v.serie_id)}
-              orientativo={orientativo}
+              visitas={datos.visitas}
               onAbrir={() => onAbrirVisita(v.id)}
             />
           ))}
@@ -175,13 +193,13 @@ function TarjetaVisita({
   visita: v,
   cliente,
   serie,
-  orientativo,
+  visitas,
   onAbrir,
 }: {
   visita: Visita;
   cliente: Cliente | undefined;
   serie: SerieRecurrente | undefined;
-  orientativo: boolean;
+  visitas: Visita[];
   onAbrir: () => void;
 }) {
   const nombre = cliente?.nombre ?? 'Cliente borrado';
@@ -209,10 +227,7 @@ function TarjetaVisita({
               {v.ayudantes > 0 && <span className="chip-estado neutro">{textoAyudantes(v.ayudantes)}</span>}
             </span>
           )}
-          <span className="semaforo">
-            <span className="punto" aria-hidden="true" />
-            {orientativo ? 'Sin previsión · Previsión orientativa' : 'Sin previsión'}
-          </span>
+          {v.estado === 'programada' && <LineaSemaforo visita={v} cliente={cliente} huecoLibre={huecoLibrePara(v, visitas)} conConsejo />}
         </span>
       </button>
       {tel ? (
