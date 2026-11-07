@@ -1,5 +1,7 @@
 import { db, nuevoId } from './db';
 import { TIPOS_COLABORADOR, TIPOS_TRABAJO, type Categoria, type Cliente, type Comunes, type Deuda, type MedioPago, type Movimiento, type Rol, type Saldo, type TipoMovimiento, type Visita, type SerieRecurrente, type MotivoReprogramacion } from '../domain/tipos';
+import { CATEGORIAS_INICIALES } from '../domain/categoriasIniciales';
+import { prestamos as prestamosPendientes } from '../domain/cifras';
 import { HORA_POR_DEFECTO, SEMANAS_MATERIALIZADAS, fechasSerie } from '../domain/agenda';
 import { claveDia, sumarDias } from '../lib/fechas';
 
@@ -28,7 +30,8 @@ export async function borrarAjuste(clave: string): Promise<void> {
 async function contexto(): Promise<{ usuario: string; negocio: string; rol: Rol }> {
   const [usuario, negocio] = await Promise.all([ajuste<string>('usuario_actual'), ajuste<string>('negocio_id')]);
   if (!usuario || !negocio) throw new Error('Base local sin preparar');
-  const rol = (await db.usuarios.get(usuario))?.rol ?? 'titular';
+  // Si el usuario actual no existe (datos dañados o borrado), entra con el mínimo: colaborador, nunca titular.
+  const rol = (await db.usuarios.get(usuario))?.rol ?? 'colaborador';
   return { usuario, negocio, rol };
 }
 
@@ -267,7 +270,14 @@ export async function crearCliente(d: DatosCliente): Promise<{ cliente: Cliente;
   validarCliente(d);
   const { usuario, negocio, rol } = await contexto();
   exigir(rol);
-  const cliente: Cliente = { ...comunes(usuario, negocio), ...d, nombre: d.nombre.trim() };
+  const base = comunes(usuario, negocio);
+  const cliente: Cliente = {
+    ...base,
+    ...d,
+    nombre: d.nombre.trim(),
+    historial_cuota: d.modalidad === 'abono' && d.cuota_abono ? [{ desde: claveDia(base.creado_en), cuota: d.cuota_abono }] : [],
+    periodos_sin_abono: [],
+  };
   await db.clientes.add(cliente);
   return {
     cliente,
@@ -279,6 +289,32 @@ export async function crearCliente(d: DatosCliente): Promise<{ cliente: Cliente;
   };
 }
 
+/**
+ * Historia del abono al editar (QA ola 4, hallazgo 2): si cambia la cuota, se guarda desde hoy (los meses pasados
+ * siguen con la suya); si se desactiva o pasa a puntual, se abre un tramo sin abono (lo ya vencido se conserva);
+ * si vuelve a abono, se cierra.
+ */
+function historiaAbono(anterior: Cliente, nuevo: Cliente): Pick<Cliente, 'historial_cuota' | 'periodos_sin_abono'> {
+  const hoy = claveDia(new Date());
+  const alta = claveDia(anterior.creado_en);
+  let historial = [...(anterior.historial_cuota ?? [])];
+  if (!historial.length && anterior.cuota_abono && anterior.modalidad === 'abono') historial = [{ desde: alta, cuota: anterior.cuota_abono }];
+  if (nuevo.cuota_abono && nuevo.cuota_abono !== (historial.at(-1)?.cuota ?? null)) {
+    historial = historial.filter((h) => h.desde !== hoy);
+    historial.push({ desde: historial.length ? hoy : alta, cuota: nuevo.cuota_abono });
+  }
+  const periodos = (anterior.periodos_sin_abono ?? []).map((p) => ({ ...p }));
+  const antes = anterior.activo && anterior.modalidad === 'abono';
+  const despues = nuevo.activo && nuevo.modalidad === 'abono';
+  if (antes && !despues) periodos.push({ desde: hoy, hasta: null });
+  if (!antes && despues) {
+    const abierto = periodos.find((p) => p.hasta === null);
+    if (abierto) abierto.hasta = hoy;
+    else periodos.push({ desde: alta, hasta: hoy }); // no tenía abono hasta hoy: no se cobran meses anteriores
+  }
+  return { historial_cuota: historial, periodos_sin_abono: periodos };
+}
+
 /** Edita un cliente (también desactivar y notas). Devuelve el deshacer de 8 s. */
 export async function editarCliente(id: string, cambios: Partial<DatosCliente>): Promise<{ cliente: Cliente; deshacer: Deshacer }> {
   const { usuario, rol } = await contexto();
@@ -287,6 +323,7 @@ export async function editarCliente(id: string, cambios: Partial<DatosCliente>):
     const anterior = await db.clientes.get(id);
     if (!anterior) throw new Error('Cliente no encontrado');
     const cliente: Cliente = { ...anterior, ...cambios, actualizado_en: new Date().toISOString(), modificado_por: usuario, version: anterior.version + 1 };
+    Object.assign(cliente, historiaAbono(anterior, cliente));
     validarCliente(cliente);
     await db.clientes.put(cliente);
     return { anterior, cliente };
@@ -350,23 +387,71 @@ export async function anotarTrabajo(d: {
  * Devolución de fianza (§9.6): «Entera» o «Me descontaron algo». Crea la devolución por lo devuelto y,
  * si falta algo, un gasto automático de Movilidad por la diferencia con nota «Descuento de fianza».
  */
+/**
+ * Categoría del descuento de fianza: «Alquiler de furgoneta» (grupo Movilidad, decisión de Ariel). Si falta o está
+ * borrada, se vuelve a crear desde las categorías iniciales en vez de fallar o usar un id inexistente.
+ */
+async function categoriaDescuentoFianza(): Promise<Categoria> {
+  const c = await db.categorias.where('clave').equals('alquiler_furgoneta').first();
+  if (c && !c.eliminado_en) return c;
+  const ini = CATEGORIAS_INICIALES.find((x) => x.clave === 'alquiler_furgoneta')!;
+  const { usuario, negocio } = await contexto();
+  const nueva: Categoria = {
+    ...(c ?? comunes(usuario, negocio)), clave: ini.clave, nombre: ini.nombre, nombre_corto: ini.nombre_corto, grupo: ini.grupo,
+    icono: ini.icono, tipo: ini.tipo, es_inversion: ini.es_inversion, visible: true, orden_manual: ini.orden, contador_uso_60d: 0,
+    eliminado_en: null, actualizado_en: new Date().toISOString(), modificado_por: usuario, version: (c?.version ?? 0) + 1,
+  };
+  await db.categorias.put(nueva);
+  return nueva;
+}
+
 export async function devolverFianza(fianzaId: string, devuelto: number, medio: MedioPago): Promise<{ deshacer: Deshacer }> {
   const { usuario, rol } = await contexto();
   exigir(rol, 'fianza_devuelta');
-  const entrega = await db.movimientos.get(fianzaId);
-  if (!entrega || entrega.tipo !== 'fianza_entregada' || entrega.eliminado_en) throw new Error('Fianza no encontrada');
-  if (!Number.isInteger(devuelto) || devuelto < 0 || devuelto > entrega.importe) throw new Error('Importe no válido');
-  const movilidad = await db.categorias.where('clave').equals('alquiler_furgoneta').first();
   const fecha = new Date().toISOString();
   const ids: string[] = [];
+  // Todo en una transacción y contra lo que ya está resuelto: devolver o descontar dos veces la misma fianza falla.
   await db.transaction('rw', [db.movimientos, db.ajustes, db.categorias, db.usuarios], async () => {
+    const entrega = await db.movimientos.get(fianzaId);
+    if (!entrega || entrega.tipo !== 'fianza_entregada' || entrega.eliminado_en) throw new Error('Fianza no encontrada');
+    const ligados = await db.movimientos.filter((m) => !m.eliminado_en && m.fianza_id === fianzaId).toArray();
+    const resuelto = ligados.reduce((s, m) => s + m.importe, 0);
+    const restante = entrega.importe - resuelto;
+    if (restante <= 0) throw new Error('Esta fianza ya está devuelta');
+    if (!Number.isInteger(devuelto) || devuelto < 0 || devuelto > restante) throw new Error('Importe no válido');
     if (devuelto > 0)
       ids.push((await crearMovimiento({ tipo: 'fianza_devuelta', importe: devuelto, fecha, categoria_id: null, medio_pago: medio, fianza_id: fianzaId, nota: entrega.fianza?.motivo ?? '' })).movimiento.id);
-    const diferencia = entrega.importe - devuelto;
-    if (diferencia > 0)
-      ids.push((await crearMovimiento({ tipo: 'gasto', importe: diferencia, fecha, categoria_id: movilidad!.id, medio_pago: medio, fianza_id: fianzaId, nota: 'Descuento de fianza' })).movimiento.id);
+    const diferencia = restante - devuelto;
+    if (diferencia > 0) {
+      const movilidad = await categoriaDescuentoFianza();
+      ids.push((await crearMovimiento({ tipo: 'gasto', importe: diferencia, fecha, categoria_id: movilidad.id, medio_pago: medio, fianza_id: fianzaId, nota: 'Descuento de fianza' })).movimiento.id);
+    }
   });
   return { deshacer: () => marcarEliminado(ids, usuario) };
+}
+
+/**
+ * Devolver a Pablo (§9.1): reparte el importe del préstamo más antiguo al más reciente y crea todas las devoluciones
+ * en una sola transacción (o todas o ninguna). No deja devolver más de lo pendiente.
+ */
+export async function devolverPrestamos(d: { importe: number; fecha: string; medio_pago: MedioPago; nota?: string }): Promise<{ movimientos: Movimiento[]; deshacer: Deshacer }> {
+  const { usuario, rol } = await contexto();
+  exigir(rol, 'devolucion_prestamo');
+  if (!Number.isInteger(d.importe) || d.importe <= 0) throw new Error('Importe no válido');
+  const creados: Movimiento[] = [];
+  await db.transaction('rw', [db.movimientos, db.ajustes, db.categorias, db.usuarios], async () => {
+    const abiertos = prestamosPendientes(await db.movimientos.toArray()).filter((p) => p.pendiente > 0);
+    const total = abiertos.reduce((s, p) => s + p.pendiente, 0);
+    if (d.importe > total) throw new Error('Es más de lo que queda por devolver');
+    let resto = d.importe;
+    for (const p of abiertos) {
+      if (resto <= 0) break;
+      const parte = Math.min(resto, p.pendiente);
+      creados.push((await crearMovimiento({ tipo: 'devolucion_prestamo', importe: parte, fecha: d.fecha, categoria_id: null, medio_pago: d.medio_pago, nota: d.nota, prestamo_id: p.prestamo.id })).movimiento);
+      resto -= parte;
+    }
+  });
+  return { movimientos: creados, deshacer: () => marcarEliminado(creados.map((m) => m.id), usuario) };
 }
 
 // ---------- Ola 5: agenda (visitas, series y «Hecho») ----------

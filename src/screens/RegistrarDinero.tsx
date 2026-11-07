@@ -3,7 +3,7 @@ import { ChevronRight, Search, X } from 'lucide-react';
 import { Dialogo } from '../components/Dialogo';
 import { useDeshacer } from '../components/Deshacer';
 import { useDatos } from '../db/datos';
-import { crearMovimiento, devolverFianza, editarMovimiento, eliminarMovimiento, puedeTipo, type Deshacer } from '../db/repo';
+import { crearMovimiento, devolverFianza, devolverPrestamos, editarMovimiento, eliminarMovimiento, puedeTipo, type Deshacer } from '../db/repo';
 import { prestamos as listaPrestamos, fianzas as listaFianzas } from '../domain/cifras';
 import { calcularPendientes, cobradoPorClave, diasEntre, nivelAntiguedad, repartirCobro, textoAntiguedad, totalPendiente, type Pendiente } from '../domain/pendientes';
 import { MEDIOS_PAGO, etiquetaEditado, etiquetaEliminado, etiquetaGuardado, nombreTipo, type Cliente, type MedioPago, type Movimiento, type TipoMovimiento } from '../domain/tipos';
@@ -201,16 +201,8 @@ export function RegistrarDinero({
         const extra = editar.tipo === 'fianza_entregada' ? { fianza } : editar.tipo === 'cobro' ? saldosCobro(importe) : {};
         deshacer = (await editarMovimiento(editar.id, { ...comunes, ...extra })).deshacer;
       } else if (tipoFinal === 'devolucion_prestamo') {
-        // Devuelve del préstamo más antiguo al más reciente.
-        const hechos: Deshacer[] = [];
-        let resto = importe;
-        for (const p of prestamosAbiertos) {
-          if (resto <= 0) break;
-          const parte = Math.min(resto, p.pendiente);
-          hechos.push((await crearMovimiento({ ...comunes, tipo: 'devolucion_prestamo', importe: parte, categoria_id: null, prestamo_id: p.prestamo.id })).deshacer);
-          resto -= parte;
-        }
-        deshacer = async () => { for (const d of hechos) await d(); };
+        // Del préstamo más antiguo al más reciente, todo en una transacción (repo.devolverPrestamos).
+        deshacer = (await devolverPrestamos({ importe, fecha: comunes.fecha, medio_pago: comunes.medio_pago, nota: comunes.nota })).deshacer;
       } else if (tipo === 'cobro') {
         const clave = sub === 'abono' ? 'cobro_abono' : sub === 'anticipo' ? 'anticipo' : sub === 'otro' ? 'otros_ingresos' : 'cobro_trabajo';
         deshacer = (await crearMovimiento({ ...comunes, tipo: tipoFinal, categoria_id: categoriaIngreso(clave), cliente_id: clienteId, ...saldosCobro(importe) })).deshacer;

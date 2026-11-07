@@ -108,13 +108,30 @@ PRUEBA: node node_modules/vitest/vitest.mjs run
 - **Materialización «diaria»:** se hace en el cliente al abrir la app o la Agenda; con backend pasará al servidor.
 - **Comprobación visual:** no hay capturas de esta ola. Las pruebas de interfaz cubren el comportamiento, no el aspecto en un móvil.
 
-RESUMEN: La app ya tiene agenda: visitas puntuales y recurrentes, franja de 14 días, nueva visita, detalle, mover (provisional, a la espera de maqueta), cancelar y editar solo esta o esta y las siguientes. Marcar una visita como hecha anota el cobro o lo deja en «Te deben». También se corrigió la cifra animada que mostraba valores raros y se estabilizaron las pruebas; las 309 pasan.
 
-## Bloqueo al cerrar
+## Hallazgos del QA de la ola 4 corregidos en esta ola
 
-Después de las corridas en verde, entró `src/screens/dineroQa.test.tsx`, el QA de la ola 4, en edición por otra sesión. Hace fallar `tsc` y, con él, `node scripts/verificar.mjs`, que sale con 1:
-- `dineroQa.test.tsx(87,123)` y `(88,100)`: `Type '"banco"' is not assignable to type 'MedioPago'`.
+Detalle en `review/factory/fa4a9e72e841-ola-3-qa.md`. Una prueba por hallazgo, en `src/db/qaOla4.test.ts`.
 
-No es código de este frente y no lo toqué. «Banco» es solo la agrupación del desglose de «En caja» (§9.3); los medios válidos son efectivo, bizum, tarjeta y transferencia. Se avisó a la coordinadora. Con ese archivo corregido, las dos líneas PRUEBA de este informe estaban en verde.
+1. **Fianza descontada dos veces** (hallazgo 3): `devolverFianza` trabaja en una sola transacción y calcula sobre lo que ya está devuelto o descontado. Una segunda devolución falla con «Esta fianza ya está devuelta» y no crea nada; tras una devolución parcial solo se puede devolver el resto.
+2. **Permiso abierto** (hallazgo 5): si el usuario actual no existe, `contexto()` toma el rol de colaborador, nunca el de titular.
+3. **Devolución repartida entre préstamos** (hallazgo 6): nueva función `devolverPrestamos` en `repo.ts`, que crea todas las devoluciones en una transacción (o todas o ninguna) y no deja devolver más de lo pendiente. `RegistrarDinero.tsx` la usa.
+4. **Categoría del descuento sin validar** (hallazgo 9): si «Alquiler de furgoneta» falta o está borrada, se vuelve a crear en Movilidad desde las categorías iniciales.
+5. **Borrador del gasto** (hallazgo 4): `Registrar.tsx` lo borra al guardar o descartar un cobro, aporte o fianza.
+6. **Abono al desactivar el cliente y cuota de meses pasados** (hallazgo 2):
+   - `Cliente` guarda dos datos nuevos, opcionales para no migrar los clientes ya guardados: `historial_cuota` (qué cuota valía desde cada día) y `periodos_sin_abono` (tramos de baja o puntual).
+   - `editarCliente` los mantiene al cambiar la cuota, al desactivar o al pasar a puntual, y `cuotasVencidas` los usa.
+   - Resultado: lo ya vencido se conserva tras la baja, cada mes se cobra con su cuota y los meses de baja no vencen.
+   - También ajusté 2 líneas de `src/domain/abonosEsperados.ts` (de C) para que use la cuota de cada mes, con aviso a la coordinadora.
 
-ESTADO: Agenda y visitas bloqueado: tsc falla en src/screens/dineroQa.test.tsx (QA de la ola 4, en edición por otra sesión), no en el código de esta ola
+## Verificación final
+
+Hubo un bloqueo transitorio, ya resuelto:
+- `src/screens/dineroQa.test.tsx` (QA de la ola 4) no compilaba con `tsc` mientras lo escribían; el QA lo corrigió.
+- Una corrida con la máquina sobrecargada por otras sesiones dio tiempos de espera de 66 s; la siguiente pasó.
+
+Con el código final (incluidas las correcciones del QA de la ola 4), `node scripts/verificar.mjs` salió con código 0 en **3 corridas seguidas**: tipos limpios, 28 archivos y 315 pruebas, build y PWA. La línea `node node_modules/vitest/vitest.mjs run` corre la misma suite.
+
+RESUMEN: La app ya tiene agenda: visitas puntuales y recurrentes, franja de 14 días, nueva visita, detalle, mover (provisional, a la espera de maqueta), cancelar y editar solo esta o esta y las siguientes. Marcar una visita como hecha anota el cobro o lo deja en «Te deben». También se corrigieron la cifra animada, la prueba intermitente y 6 hallazgos del QA anterior (fianzas, préstamos, permisos, borrador y abonos); las 315 pruebas pasan.
+
+ESTADO: Agenda y visitas listo para integrar

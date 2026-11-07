@@ -258,6 +258,13 @@ export function Registrar({
     </>
   );
 
+  // Al guardar o descartar un cobro, aporte o fianza, el borrador del gasto ya no sirve (QA ola 4, hallazgo 4).
+  const cerrarDinero = async () => {
+    cerrando.current = true;
+    if (!editar) await encolar(() => borrarAjuste(CLAVE_BORRADOR));
+    onCerrar();
+  };
+
   if (colaborador && editar && (esSaldo || editar.tipo === 'gasto')) return <SoloLectura m={editar} onCerrar={onCerrar} />;
   if (!esGasto)
     return (
@@ -270,8 +277,8 @@ export function Registrar({
           textoImporte, setTextoImporte, fechaClave, setFechaClave, nota, setNota, medio,
           setMedio: (m) => { medioTocado.current = true; setMedio(m); },
         }}
-        onPulsarCerrar={onCerrar}
-        onCerrar={onCerrar}
+        onPulsarCerrar={cerrarDinero}
+        onCerrar={cerrarDinero}
       />
     );
 

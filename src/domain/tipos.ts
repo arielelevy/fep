@@ -176,6 +176,10 @@ export interface Cliente extends Comunes {
   ayudantes_por_defecto: number;
   notas: string;
   activo: boolean;
+  /** Cuota vigente desde cada día (AAAA-MM-DD): los meses pasados se cobran con la cuota de entonces. Opcional en datos viejos. */
+  historial_cuota?: { desde: string; cuota: number }[];
+  /** Tramos sin abono (baja o paso a puntual), [desde, hasta): ahí no vencen cuotas; lo vencido antes se conserva. */
+  periodos_sin_abono?: { desde: string; hasta: string | null }[];
 }
 
 /**

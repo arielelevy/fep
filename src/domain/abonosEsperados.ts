@@ -21,10 +21,10 @@ export function cobrosEsperadosCliente(cliente: Cliente, movimientos: Movimiento
   const hoy = claveDia(ahora);
   const cobrado = cobradoPorClave(movimientos);
   const salida: CobroEsperado[] = [];
-  for (const { periodo, vence } of cuotasVencidas(cliente, hoy)) {
+  for (const { periodo, vence, cuota } of cuotasVencidas(cliente, hoy)) {
     const pagado = cobrado.get(`${cliente.id}|abono:${periodo}`) ?? 0;
-    const pendiente = cliente.cuota_abono! - pagado;
-    if (pendiente > 0) salida.push({ cliente_id: cliente.id, periodo, vence, cuota: cliente.cuota_abono!, cobrado: pagado, pendiente });
+    const pendiente = cuota - pagado; // cuota vigente en ese mes (QA ola 4, hallazgo 2)
+    if (pendiente > 0) salida.push({ cliente_id: cliente.id, periodo, vence, cuota, cobrado: pagado, pendiente });
   }
   return salida;
 }

@@ -36,8 +36,8 @@ describe('Antigüedad de pendientes (§9.4, criterio 11)', () => {
 describe('Cuotas de abono vencidas (§9.4)', () => {
   it('genera el cobro esperado el día de cobro de cada mes desde el alta', () => {
     expect(cuotasVencidas(cliente(), '2026-11-07')).toEqual([
-      { periodo: '2026-10', vence: '2026-10-01' },
-      { periodo: '2026-11', vence: '2026-11-01' },
+      { periodo: '2026-10', vence: '2026-10-01', cuota: 9000 },
+      { periodo: '2026-11', vence: '2026-11-01', cuota: 9000 },
     ]);
     // Antes del día de cobro, el mes aún no vence.
     expect(cuotasVencidas(cliente({ dia_cobro_abono: 10 }), '2026-11-07').map((c) => c.periodo)).toEqual(['2026-09', '2026-10']);
