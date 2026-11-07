@@ -466,6 +466,13 @@ button:disabled {
   color: #fff;
   font-weight: 800;
 }
+/* Pestañas que el colaborador no puede usar (§3; hallazgo 1 del revisor de la ola 4): atenuadas y tachadas,
+   con el texto que lo explica debajo (Registrar.tsx), nunca solo por color. */
+.segmentado button:disabled {
+  color: var(--texto-3);
+  opacity: 0.55;
+  text-decoration: line-through;
+}
 
 .importe {
   text-align: center;

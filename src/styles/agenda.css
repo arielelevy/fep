@@ -1,0 +1,352 @@
+/* Agenda (§10.5, maqueta PDF p. 5, docs/maqueta.md §1.5 y componentes C33–C36), detalle de visita (§10.6),
+   Nueva / Editar visita (§7.2, H10) y Mover visita (H4, pendiente de maqueta). Reutiliza app.css y clientes.css;
+   aquí solo lo que no existe. Tokens de tokens.css. */
+
+/* ---------- Cabecera ---------- */
+.cabecera-agenda {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.cabecera-agenda .textos {
+  flex: 1;
+  min-width: 0;
+}
+.cabecera-agenda .subtitulo {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--texto-3);
+}
+.cabecera-agenda .acciones {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+/* ---------- Franja de 14 días (C34) ---------- */
+.franja-dias {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--margen));
+  padding: 2px var(--margen) 6px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.franja-dias::-webkit-scrollbar {
+  display: none;
+}
+.dia-franja {
+  flex: none;
+  width: 52px;
+  min-height: 68px;
+  border-radius: 14px;
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1.5px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  scroll-snap-align: start;
+}
+.dia-franja .corto {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+.dia-franja .numero {
+  font-size: 1.125rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.dia-franja .punto {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--verde-punto);
+}
+.dia-franja .punto.vacio {
+  background: transparent;
+}
+/* Días 8–14: orientativos (fondo transparente, borde discontinuo, texto atenuado). */
+.dia-franja.orientativo {
+  background: transparent;
+  border: 1.5px dashed var(--borde);
+  color: var(--texto-3);
+}
+.dia-franja[aria-checked='true'] {
+  background: var(--verde-oscuro);
+  border-color: var(--verde-oscuro);
+  color: #fff;
+}
+.dia-franja[aria-checked='true'] .corto {
+  color: #fff;
+}
+.dia-franja[aria-checked='true'] .punto:not(.vacio) {
+  background: var(--lima);
+}
+.franja-separador {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 2px;
+  border-left: 1.5px dashed var(--borde);
+}
+.franja-separador span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--texto-3);
+}
+
+/* ---------- Lista del día ---------- */
+.titulo-dia {
+  margin: 18px 2px 10px;
+}
+.lista-visitas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+/* ---------- Tarjeta de visita (C36) ---------- */
+.visita-agenda {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--superficie);
+  border-radius: var(--radio-tarjeta);
+  padding: 6px 12px 6px 6px;
+}
+.visita-agenda .cuerpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  padding: 8px 6px;
+  text-align: left;
+  border-radius: 12px;
+  min-height: 44px;
+}
+.visita-agenda .hora {
+  flex: none;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+}
+.visita-agenda .hora .inicio {
+  font-weight: 800;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.visita-agenda .hora .duracion {
+  font-size: 0.8125rem;
+  color: var(--texto-3);
+  font-weight: 600;
+}
+.visita-agenda .textos {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.visita-agenda .cliente {
+  font-weight: 800;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.visita-agenda .trabajo {
+  font-size: 0.9375rem;
+  color: var(--texto-2);
+}
+.visita-agenda .periodo {
+  font-size: 0.875rem;
+  color: var(--texto-3);
+  font-weight: 500;
+}
+.visita-agenda .chips-visita {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 2px;
+}
+.visita-agenda .chips-visita .chip-estado {
+  margin-top: 0;
+}
+.visita-agenda.cancelada .cliente,
+.visita-agenda.cancelada .trabajo {
+  text-decoration: line-through;
+  color: var(--texto-3);
+}
+.visita-agenda.hecha {
+  opacity: 0.85;
+}
+.chip-estado.verde {
+  background: var(--lima-suave);
+  color: var(--verde-oscuro);
+}
+.boton-llamar {
+  flex: none;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--fondo-apagado);
+  color: var(--verde-medio);
+  display: grid;
+  place-items: center;
+}
+.boton-llamar:disabled {
+  color: var(--texto-3);
+  opacity: 0.6;
+}
+
+/* ---------- Semáforo (C27, §11.3): sin datos → gris «Sin previsión» ---------- */
+.semaforo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+.semaforo .punto {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--texto-3);
+}
+.semaforo-grande {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.semaforo-grande .punto {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--texto-3);
+}
+.semaforo-grande .estado {
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+.semaforo-grande p {
+  margin: 2px 0 0;
+}
+
+/* ---------- Detalle de visita (§10.6) ---------- */
+.detalle-cliente {
+  display: block;
+  text-align: left;
+  min-height: 44px;
+  margin-top: 4px;
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+.detalle-cliente:hover {
+  text-decoration: underline;
+}
+.detalle-fecha {
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+.detalle-hora {
+  margin: 2px 0 0;
+}
+.detalle-tarjeta {
+  margin-top: 12px;
+}
+.detalle-tarjeta .etiqueta-seccion {
+  margin: 0 0 8px;
+}
+.detalle-tarjeta p {
+  margin: 0;
+}
+.detalle-tarjeta p + p {
+  margin-top: 6px;
+}
+.detalle-estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.detalle-estado .chip-estado {
+  margin-top: 0;
+  font-size: 0.875rem;
+  padding: 3px 10px;
+}
+.acciones-visita {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.acciones-visita .boton-principal {
+  grid-column: 1 / -1;
+  min-height: 60px;
+}
+.acciones-visita .boton-secundario {
+  width: 100%;
+}
+.zona-eliminar {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.boton-eliminar-pequeno {
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--rojo-texto-fuerte);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+/* ---------- Formularios y diálogos de la agenda ---------- */
+.dialogo .cf-campo {
+  margin-bottom: 16px;
+}
+.fila-cliente-visita .valor {
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cf-duracion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.cf-campo .cf-duracion input {
+  width: 110px;
+}
+.pantalla-provisional {
+  margin-top: 0;
+}
+
+/* Estado «Hecha» en las últimas visitas de la ficha (maqueta p. 4: «Hecha» en verde, siempre con texto). */
+.chip-estado.hecha {
+  background: var(--lima-suave);
+  color: var(--verde-medio);
+}

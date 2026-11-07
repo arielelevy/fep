@@ -190,3 +190,49 @@ export interface Deuda extends Comunes {
   fecha: string; // ISO: cuándo se hizo el trabajo
   visita_id: string | null;
 }
+
+// ---------- Ola 5: agenda ----------
+
+export type EstadoVisita = 'programada' | 'hecha' | 'cancelada';
+export type EstadoCobro = 'no_aplica' | 'pendiente' | 'cobrada' | 'parcial';
+export type MotivoReprogramacion = 'clima' | 'cliente' | 'propio' | 'otro';
+
+/** Visita (§8.4). `fecha` es el día en Madrid (AAAA-MM-DD); `hora_inicio` "HH:MM" o null (se toma 09:00). */
+export interface Visita extends Comunes {
+  cliente_id: string;
+  fecha: string;
+  hora_inicio: string | null;
+  duracion: number; // minutos
+  tipos_trabajo: TipoTrabajo[];
+  descripcion: string;
+  precio: number | null; // céntimos; null si va dentro del abono o es presupuesto
+  incluida_en_abono: boolean;
+  requiere_vehiculo: boolean;
+  ayudantes: number;
+  estado: EstadoVisita;
+  serie_id: string | null;
+  /** Día que le tocaba en la serie (no cambia al moverla): evita que la serie la vuelva a crear. */
+  fecha_serie: string | null;
+  reprogramada_desde: string | null; // "AAAA-MM-DD HH:MM"
+  motivo_reprogramacion: MotivoReprogramacion | null;
+  motivo_cancelacion: string;
+  hecha_en: string | null; // ISO
+}
+
+export type FrecuenciaSerie = 'semanal' | 'quincenal' | 'mensual';
+
+/** Repetición de visitas (§8.5). Se materializa con 8 semanas de antelación. */
+export interface SerieRecurrente extends Comunes {
+  cliente_id: string;
+  regla: { frecuencia: FrecuenciaSerie; dias_semana: number[]; hora: string | null; duracion: number };
+  fecha_inicio: string; // AAAA-MM-DD
+  fecha_fin: string | null; // incluida
+  plantilla_visita: {
+    tipos_trabajo: TipoTrabajo[];
+    descripcion: string;
+    ayudantes: number;
+    requiere_vehiculo: boolean;
+    precio: number | null;
+    incluida_en_abono: boolean;
+  };
+}

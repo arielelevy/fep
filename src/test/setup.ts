@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 // Node ≥ 25 trae un localStorage global propio que, sin --localstorage-file, queda indefinido y tapa el de jsdom.
@@ -31,5 +31,9 @@ if (!disponible) {
 
 // La guía de instalación sólo se ve fuera de la app instalada; en las pruebas se da por vista.
 window.localStorage.setItem('fergo.guia.vista', '1');
+
+// La suite completa corre muchos archivos en paralelo: la primera carga de datos de IndexedDB puede pasar de 1 s
+// (límite por defecto de findBy/waitFor) y dar fallos intermitentes que no aparecen al correr un archivo solo.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => cleanup());

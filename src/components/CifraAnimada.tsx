@@ -31,8 +31,11 @@ export function CifraAnimada({
     }
     let raf = 0;
     const t0 = performance.now();
-    const paso = (t: number) => {
-      const p = Math.min(1, (t - t0) / DURACION_CONTEO_MS);
+    // El progreso se mide con el mismo reloj que t0 y se acota a [0, 1]: la marca que pasa requestAnimationFrame es el
+    // inicio del frame y puede ser anterior a t0; con p < 0 la curva daba valores fuera del rango (p. ej. «− 14.037,75 €»
+    // al animar de 0 a 150 €).
+    const paso = () => {
+      const p = Math.min(1, Math.max(0, (performance.now() - t0) / DURACION_CONTEO_MS));
       const suave = 1 - (1 - p) ** 3;
       const actual = Math.round(inicio + (valor - inicio) * suave);
       desde.current = actual;

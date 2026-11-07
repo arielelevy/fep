@@ -77,6 +77,7 @@ export function Movimientos({
     return { delMes, porDia };
   }, [movimientos, mes, filtro, clienteId]);
   const fianzasPorId = useMemo(() => new Map(estadosFianza(movimientos ?? []).map((f) => [f.entrega.id, f])), [movimientos]);
+  const aportante = datos?.usuarios.find((u) => u.rol === 'colaborador')?.etiqueta_aportante ?? 'papá';
   const nombresCliente = useMemo(() => new Map((datos?.clientes ?? []).map((c) => [c.id, c.nombre])), [datos?.clientes]);
   const clienteFiltro = clienteId ? nombresCliente.get(clienteId) : undefined;
   const resumen = useMemo(() => (movimientos ? resumenMes(movimientos, mes) : null), [movimientos, mes]);
@@ -172,7 +173,7 @@ export function Movimientos({
                   key={m.id}
                   m={m}
                   categoria={m.categoria_id ? categorias.get(m.categoria_id) : undefined}
-                  etiquetaAportante={datos.usuarios.find((u) => u.rol === 'colaborador')?.etiqueta_aportante ?? 'papá'}
+                  etiquetaAportante={aportante}
                   nombreCliente={m.cliente_id ? nombresCliente.get(m.cliente_id) : undefined}
                   fianza={fianzasPorId.get(m.fianza_id ?? m.id)}
                   onEditar={() => onEditar(m)}

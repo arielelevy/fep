@@ -1,5 +1,7 @@
 import { db, nuevoId } from './db';
-import { TIPOS_COLABORADOR, type Categoria, type Cliente, type Comunes, type Deuda, type MedioPago, type Movimiento, type Rol, type Saldo, type TipoMovimiento } from '../domain/tipos';
+import { TIPOS_COLABORADOR, TIPOS_TRABAJO, type Categoria, type Cliente, type Comunes, type Deuda, type MedioPago, type Movimiento, type Rol, type Saldo, type TipoMovimiento, type Visita, type SerieRecurrente, type MotivoReprogramacion } from '../domain/tipos';
+import { HORA_POR_DEFECTO, SEMANAS_MATERIALIZADAS, fechasSerie } from '../domain/agenda';
+import { claveDia, sumarDias } from '../lib/fechas';
 
 // Escrituras locales (§14.2): se guardan al instante en IndexedDB. Toda escritura guarda
 // creado_por / modificado_por (§3) y usa borrado lógico (§4.3). Cada operación devuelve
@@ -310,13 +312,15 @@ export async function anotarTrabajo(d: {
   cobrado: number;
   medio_pago: MedioPago;
   fecha?: string;
+  /** Visita de la que sale el trabajo (flujo «Hecho», ola 5). */
+  visita_id?: string | null;
 }): Promise<{ deuda: Deuda; cobro: Movimiento | null; deshacer: Deshacer }> {
   const { usuario, negocio, rol } = await contexto();
   exigir(rol);
   if (!Number.isInteger(d.precio) || d.precio <= 0) throw new Error('Precio no válido');
   if (!Number.isInteger(d.cobrado) || d.cobrado < 0) throw new Error('Importe no válido');
   const fecha = d.fecha ?? new Date().toISOString();
-  const deuda: Deuda = { ...comunes(usuario, negocio), cliente_id: d.cliente_id, concepto: d.concepto.trim() || 'Trabajo', importe: d.precio, fecha, visita_id: null };
+  const deuda: Deuda = { ...comunes(usuario, negocio), cliente_id: d.cliente_id, concepto: d.concepto.trim() || 'Trabajo', importe: d.precio, fecha, visita_id: d.visita_id ?? null };
   const cat = await db.categorias.where('clave').equals('cobro_trabajo').first();
   let cobro: Movimiento | null = null;
   await db.transaction('rw', [db.deudas, db.movimientos, db.ajustes, db.categorias, db.usuarios], async () => {
@@ -364,3 +368,261 @@ export async function devolverFianza(fianzaId: string, devuelto: number, medio: 
   });
   return { deshacer: () => marcarEliminado(ids, usuario) };
 }
+
+// ---------- Ola 5: agenda (visitas, series y «Hecho») ----------
+
+export type DatosVisita = Omit<Visita, keyof Comunes | 'estado' | 'serie_id' | 'fecha_serie' | 'reprogramada_desde' | 'motivo_reprogramacion' | 'motivo_cancelacion' | 'hecha_en'>;
+export type DatosSerie = Omit<SerieRecurrente, keyof Comunes>;
+
+function validarVisita(v: Pick<Visita, 'cliente_id' | 'fecha' | 'tipos_trabajo' | 'duracion' | 'precio' | 'hora_inicio'>) {
+  if (!v.cliente_id) throw new Error('Falta el cliente');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v.fecha)) throw new Error('Fecha no válida');
+  if (v.hora_inicio !== null && !/^\d{2}:\d{2}$/.test(v.hora_inicio)) throw new Error('Hora no válida');
+  if (v.tipos_trabajo.length === 0) throw new Error('Elige al menos un tipo de trabajo');
+  if (!Number.isInteger(v.duracion) || v.duracion <= 0) throw new Error('Duración no válida');
+  if (v.precio !== null && (!Number.isInteger(v.precio) || v.precio <= 0)) throw new Error('Precio no válido');
+}
+
+const visitaNueva = (base: Comunes, d: DatosVisita, serie: { id: string; fecha: string } | null): Visita => ({
+  ...base,
+  ...d,
+  descripcion: d.descripcion.trim(),
+  estado: 'programada',
+  serie_id: serie?.id ?? null,
+  fecha_serie: serie?.fecha ?? null,
+  reprogramada_desde: null,
+  motivo_reprogramacion: null,
+  motivo_cancelacion: '',
+  hecha_en: null,
+});
+
+/** Guarda una lista de visitas con su estado anterior como deshacer (borrado lógico de las nuevas). */
+async function restaurarVisitas(anteriores: Visita[], nuevas: string[], usuario: string) {
+  await db.transaction('rw', db.visitas, async () => {
+    const ahora = new Date().toISOString();
+    for (const a of anteriores) {
+      const actual = await db.visitas.get(a.id);
+      await db.visitas.put({ ...a, actualizado_en: ahora, modificado_por: usuario, version: (actual?.version ?? a.version) + 1 });
+    }
+    for (const id of nuevas) {
+      const v = await db.visitas.get(id);
+      if (v) await db.visitas.put({ ...v, eliminado_en: ahora, actualizado_en: ahora, modificado_por: usuario, version: v.version + 1 });
+    }
+  });
+}
+
+/** Nueva visita puntual (§7.2). */
+export async function crearVisita(d: DatosVisita): Promise<{ visita: Visita; deshacer: Deshacer }> {
+  validarVisita(d);
+  const { usuario, negocio, rol } = await contexto();
+  exigir(rol);
+  const visita = visitaNueva(comunes(usuario, negocio), d, null);
+  await db.visitas.add(visita);
+  return { visita, deshacer: () => restaurarVisitas([], [visita.id], usuario) };
+}
+
+/**
+ * Crea las visitas que falten de las series activas hasta `semanas` semanas vista (§8.5).
+ * Una visita de serie se identifica por (serie_id, fecha_serie): las movidas, canceladas o borradas no se recrean.
+ */
+export async function materializarSeries(hoy: string, semanas = SEMANAS_MATERIALIZADAS, soloSerie?: string): Promise<string[]> {
+  const ctx = await contexto();
+  if (ctx.rol !== 'titular') return [];
+  const hasta = sumarDias(hoy, semanas * 7);
+  const creadas: string[] = [];
+  await db.transaction('rw', db.series, db.visitas, async () => {
+    const series = (await db.series.toArray()).filter((s) => !s.eliminado_en && (!soloSerie || s.id === soloSerie));
+    for (const s of series) {
+      const existentes = new Set((await db.visitas.where('serie_id').equals(s.id).toArray()).map((v) => v.fecha_serie));
+      for (const fecha of fechasSerie(s, hoy, hasta)) {
+        if (existentes.has(fecha)) continue;
+        const p = s.plantilla_visita;
+        const v = visitaNueva(comunes(ctx.usuario, ctx.negocio), {
+          cliente_id: s.cliente_id, fecha, hora_inicio: s.regla.hora, duracion: s.regla.duracion, tipos_trabajo: p.tipos_trabajo,
+          descripcion: p.descripcion, precio: p.precio, incluida_en_abono: p.incluida_en_abono, requiere_vehiculo: p.requiere_vehiculo, ayudantes: p.ayudantes,
+        }, { id: s.id, fecha });
+        await db.visitas.add(v);
+        creadas.push(v.id);
+      }
+    }
+  });
+  return creadas;
+}
+
+/** Nueva serie recurrente (§8.5) y sus visitas hasta hoy + 8 semanas. */
+export async function crearSerie(d: DatosSerie, hoy: string = claveDiaHoy()): Promise<{ serie: SerieRecurrente; deshacer: Deshacer }> {
+  const { usuario, negocio, rol } = await contexto();
+  exigir(rol);
+  validarVisita({ cliente_id: d.cliente_id, fecha: d.fecha_inicio, tipos_trabajo: d.plantilla_visita.tipos_trabajo, duracion: d.regla.duracion, precio: d.plantilla_visita.precio, hora_inicio: d.regla.hora });
+  const serie: SerieRecurrente = { ...comunes(usuario, negocio), ...d };
+  await db.series.add(serie);
+  // Horizonte: hoy + 8 semanas (§8.5), aunque la serie empiece más adelante; fechasSerie ya arranca en fecha_inicio.
+  const creadas = await materializarSeries(hoy, SEMANAS_MATERIALIZADAS, serie.id);
+  return {
+    serie,
+    deshacer: async () => {
+      await restaurarVisitas([], creadas, usuario);
+      await db.transaction('rw', db.series, async () => {
+        const s = await db.series.get(serie.id);
+        if (s) await db.series.put({ ...s, eliminado_en: new Date().toISOString(), modificado_por: usuario, version: s.version + 1 });
+      });
+    },
+  };
+}
+
+/** Edita una sola visita («Solo esta visita», §8.5). También sirve para editar la fecha. */
+export async function editarVisita(id: string, cambios: Partial<DatosVisita>): Promise<{ visita: Visita; deshacer: Deshacer }> {
+  const { usuario, rol } = await contexto();
+  exigir(rol);
+  const { anterior, visita } = await db.transaction('rw', db.visitas, async () => {
+    const anterior = await db.visitas.get(id);
+    if (!anterior) throw new Error('Visita no encontrada');
+    const visita: Visita = { ...anterior, ...cambios, actualizado_en: new Date().toISOString(), modificado_por: usuario, version: anterior.version + 1 };
+    validarVisita(visita);
+    await db.visitas.put(visita);
+    return { anterior, visita };
+  });
+  return { visita, deshacer: () => restaurarVisitas([anterior], [], usuario) };
+}
+
+/**
+ * «Esta y las siguientes» (§8.5, criterio 13): la serie original termina el día anterior a esta visita y nace
+ * una serie nueva desde aquí con los cambios. Las visitas programadas de la serie desde esta fecha se
+ * sustituyen; las pasadas y las ya hechas o canceladas no se tocan.
+ */
+export async function editarSerieDesde(
+  visitaId: string,
+  cambios: { visita?: Partial<DatosVisita>; regla?: Partial<SerieRecurrente['regla']> },
+  hoy: string = claveDiaHoy(),
+): Promise<{ serie: SerieRecurrente; deshacer: Deshacer }> {
+  const { usuario, negocio, rol } = await contexto();
+  exigir(rol);
+  const v = await db.visitas.get(visitaId);
+  if (!v?.serie_id) throw new Error('La visita no es de una serie');
+  const original = await db.series.get(v.serie_id);
+  if (!original) throw new Error('Serie no encontrada');
+  const desde = v.fecha_serie ?? v.fecha;
+  const cv = cambios.visita ?? {};
+  const regla = {
+    ...original.regla,
+    hora: cv.hora_inicio !== undefined ? cv.hora_inicio : original.regla.hora,
+    duracion: cv.duracion ?? original.regla.duracion,
+    ...cambios.regla,
+  };
+  const nueva: SerieRecurrente = {
+    ...comunes(usuario, negocio),
+    cliente_id: original.cliente_id,
+    regla,
+    fecha_inicio: cv.fecha ?? desde,
+    fecha_fin: original.fecha_fin,
+    plantilla_visita: {
+      tipos_trabajo: cv.tipos_trabajo ?? original.plantilla_visita.tipos_trabajo,
+      descripcion: cv.descripcion ?? original.plantilla_visita.descripcion,
+      ayudantes: cv.ayudantes ?? original.plantilla_visita.ayudantes,
+      requiere_vehiculo: cv.requiere_vehiculo ?? original.plantilla_visita.requiere_vehiculo,
+      precio: cv.precio !== undefined ? cv.precio : original.plantilla_visita.precio,
+      incluida_en_abono: cv.incluida_en_abono ?? original.plantilla_visita.incluida_en_abono,
+    },
+  };
+  validarVisita({ cliente_id: nueva.cliente_id, fecha: nueva.fecha_inicio, tipos_trabajo: nueva.plantilla_visita.tipos_trabajo, duracion: regla.duracion, precio: nueva.plantilla_visita.precio, hora_inicio: regla.hora });
+  const sustituidas: Visita[] = [];
+  await db.transaction('rw', db.series, db.visitas, async () => {
+    const ahora = new Date().toISOString();
+    await db.series.put({ ...original, fecha_fin: sumarDias(desde, -1), actualizado_en: ahora, modificado_por: usuario, version: original.version + 1 });
+    await db.series.add(nueva);
+    const futuras = (await db.visitas.where('serie_id').equals(original.id).toArray()).filter(
+      (x) => !x.eliminado_en && x.estado === 'programada' && (x.fecha_serie ?? x.fecha) >= desde,
+    );
+    for (const x of futuras) {
+      sustituidas.push(x);
+      await db.visitas.put({ ...x, eliminado_en: ahora, actualizado_en: ahora, modificado_por: usuario, version: x.version + 1 });
+    }
+  });
+  const creadas = await materializarSeries(hoy, SEMANAS_MATERIALIZADAS, nueva.id); // horizonte hoy + 8 semanas (§8.5)
+  return {
+    serie: nueva,
+    deshacer: async () => {
+      await restaurarVisitas(sustituidas, creadas, usuario);
+      await db.transaction('rw', db.series, async () => {
+        const ahora = new Date().toISOString();
+        const n = await db.series.get(nueva.id);
+        if (n) await db.series.put({ ...n, eliminado_en: ahora, modificado_por: usuario, version: n.version + 1 });
+        const o = await db.series.get(original.id);
+        if (o) await db.series.put({ ...original, actualizado_en: ahora, modificado_por: usuario, version: o.version + 1 });
+      });
+    },
+  };
+}
+
+/** Mover una visita a otro día u hora (§8.4). Guarda de dónde venía y el motivo. */
+export async function moverVisita(id: string, fecha: string, hora: string | null, motivo: MotivoReprogramacion = 'propio'): Promise<{ visita: Visita; deshacer: Deshacer }> {
+  const v = await db.visitas.get(id);
+  if (!v) throw new Error('Visita no encontrada');
+  const r = await editarVisita(id, { fecha, hora_inicio: hora });
+  const desde = `${v.fecha} ${v.hora_inicio ?? HORA_POR_DEFECTO}`;
+  await db.visitas.update(id, { reprogramada_desde: desde, motivo_reprogramacion: motivo });
+  return { visita: { ...r.visita, reprogramada_desde: desde, motivo_reprogramacion: motivo }, deshacer: r.deshacer };
+}
+
+/** Cancelar una visita (con motivo opcional). No se borra: queda en el historial como cancelada. */
+export async function cancelarVisita(id: string, motivo = ''): Promise<{ deshacer: Deshacer }> {
+  const { usuario, rol } = await contexto();
+  exigir(rol);
+  const anterior = await db.visitas.get(id);
+  if (!anterior) throw new Error('Visita no encontrada');
+  await db.visitas.put({ ...anterior, estado: 'cancelada', motivo_cancelacion: motivo.trim(), actualizado_en: new Date().toISOString(), modificado_por: usuario, version: anterior.version + 1 });
+  return { deshacer: () => restaurarVisitas([anterior], [], usuario) };
+}
+
+/** Borra una visita (borrado lógico), por ejemplo una creada por error. */
+export async function eliminarVisita(id: string): Promise<{ deshacer: Deshacer }> {
+  const { usuario, rol } = await contexto();
+  exigir(rol);
+  const anterior = await db.visitas.get(id);
+  if (!anterior) throw new Error('Visita no encontrada');
+  await restaurarVisitas([], [id], usuario);
+  return { deshacer: () => restaurarVisitas([anterior], [], usuario) };
+}
+
+/**
+ * «Hecho» (§10.1.4, criterios 9 y 10): marca la visita como hecha y, si es puntual con precio, anota su deuda
+ * por el precio y el cobro por lo cobrado (todo, otra cantidad o nada). Lo no cobrado queda en «Te deben»
+ * y el cliente muestra «Te debe …». Una visita de abono o sin precio solo se marca hecha. Un solo deshacer.
+ */
+export async function completarVisita(
+  visitaId: string,
+  cobro: { cobrado: number; medio_pago: MedioPago } | null,
+): Promise<{ visita: Visita; deuda: Deuda | null; cobro: Movimiento | null; deshacer: Deshacer }> {
+  const { usuario, rol } = await contexto();
+  exigir(rol);
+  const anterior = await db.visitas.get(visitaId);
+  if (!anterior || anterior.eliminado_en) throw new Error('Visita no encontrada');
+  if (anterior.estado === 'hecha') throw new Error('La visita ya está hecha');
+  if (anterior.estado === 'cancelada') throw new Error('La visita está cancelada');
+  const ahora = new Date().toISOString();
+  const visita: Visita = { ...anterior, estado: 'hecha', hecha_en: ahora, actualizado_en: ahora, modificado_por: usuario, version: anterior.version + 1 };
+  let trabajo: Awaited<ReturnType<typeof anotarTrabajo>> | null = null;
+  await db.transaction('rw', [db.visitas, db.deudas, db.movimientos, db.ajustes, db.categorias, db.usuarios], async () => {
+    await db.visitas.put(visita);
+    if (!anterior.incluida_en_abono && anterior.precio) {
+      const medio = cobro?.medio_pago ?? ((await db.ajustes.get('ultimo_medio_pago'))?.valor as MedioPago) ?? 'efectivo';
+      const concepto = anterior.descripcion || anterior.tipos_trabajo.map((x) => TIPOS_TRABAJO.find((y) => y.id === x)?.nombre ?? x).join(' y ') || 'Trabajo';
+      trabajo = await anotarTrabajo({
+        cliente_id: anterior.cliente_id, concepto, precio: anterior.precio,
+        cobrado: Math.max(0, cobro?.cobrado ?? 0), medio_pago: medio, fecha: ahora, visita_id: anterior.id,
+      });
+    }
+  });
+  const t = trabajo as Awaited<ReturnType<typeof anotarTrabajo>> | null;
+  return {
+    visita,
+    deuda: t?.deuda ?? null,
+    cobro: t?.cobro ?? null,
+    deshacer: async () => {
+      if (t) await t.deshacer();
+      await restaurarVisitas([anterior], [], usuario);
+    },
+  };
+}
+
+const claveDiaHoy = () => claveDia(new Date());

@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { CATEGORIAS_INICIALES } from '../domain/categoriasIniciales';
-import type { Ajuste, Categoria, Cliente, Deuda, Foto, Movimiento, Usuario } from '../domain/tipos';
+import type { Ajuste, Categoria, Cliente, Deuda, Foto, Movimiento, SerieRecurrente, Usuario, Visita } from '../domain/tipos';
 
 // Almacenamiento local en IndexedDB con Dexie (§4.2, §14): todo se guarda aquí primero.
 
@@ -12,6 +12,8 @@ export class FergoDB extends Dexie {
   fotos!: Table<Foto, string>;
   clientes!: Table<Cliente, string>;
   deudas!: Table<Deuda, string>;
+  visitas!: Table<Visita, string>;
+  series!: Table<SerieRecurrente, string>;
 
   constructor(nombre = 'fergo') {
     super(nombre);
@@ -35,6 +37,11 @@ export class FergoDB extends Dexie {
           if (titular) await tx.table('usuarios').add(pablo(titular.negocio_id, titular.id));
         }
       });
+    // Ola 5: agenda (visitas y series recurrentes).
+    this.version(3).stores({
+      visitas: 'id, fecha, cliente_id, serie_id, eliminado_en',
+      series: 'id, cliente_id, eliminado_en',
+    });
     this.on('populate', (tx) => sembrar(tx));
   }
 }

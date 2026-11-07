@@ -79,13 +79,25 @@ export interface EstadoFianza {
   estado: 'pendiente' | 'devuelta' | 'devuelta_parcial';
 }
 
+/** Suma de los importes de un tipo de movimiento agrupada por el movimiento al que apunta (una sola pasada). */
+function sumaPor(a: Movimiento[], tipo: TipoMovimiento, campo: 'fianza_id' | 'prestamo_id'): Map<string, number> {
+  const suma = new Map<string, number>();
+  for (const m of a) {
+    const padre = m[campo];
+    if (m.tipo === tipo && padre) suma.set(padre, (suma.get(padre) ?? 0) + m.importe);
+  }
+  return suma;
+}
+
 export function fianzas(movs: Movimiento[]): EstadoFianza[] {
   const a = activos(movs);
+  const devueltoPor = sumaPor(a, 'fianza_devuelta', 'fianza_id');
+  const descontadoPor = sumaPor(a, 'gasto', 'fianza_id');
   return a
     .filter((m) => m.tipo === 'fianza_entregada')
     .map((entrega) => {
-      const devuelto = a.filter((m) => m.tipo === 'fianza_devuelta' && m.fianza_id === entrega.id).reduce((s, m) => s + m.importe, 0);
-      const descontado = a.filter((m) => m.tipo === 'gasto' && m.fianza_id === entrega.id).reduce((s, m) => s + m.importe, 0);
+      const devuelto = devueltoPor.get(entrega.id) ?? 0;
+      const descontado = descontadoPor.get(entrega.id) ?? 0;
       const resuelto = devuelto + descontado >= entrega.importe;
       return { entrega, devuelto, descontado, estado: !resuelto ? 'pendiente' : descontado > 0 ? 'devuelta_parcial' : 'devuelta' };
     });
@@ -99,11 +111,12 @@ export function calcularEnFianzas(movs: Movimiento[]): number {
 /** Préstamos de Pablo (§8.9): cada movimiento de préstamo es un préstamo; lo devuelto sale de sus devoluciones. */
 export function prestamos(movs: Movimiento[]): { prestamo: Movimiento; devuelto: number; pendiente: number }[] {
   const a = activos(movs);
+  const devueltoPor = sumaPor(a, 'devolucion_prestamo', 'prestamo_id');
   return a
     .filter((m) => m.tipo === 'prestamo')
     .sort((x, y) => x.fecha.localeCompare(y.fecha))
     .map((prestamo) => {
-      const devuelto = a.filter((m) => m.tipo === 'devolucion_prestamo' && m.prestamo_id === prestamo.id).reduce((s, m) => s + m.importe, 0);
+      const devuelto = devueltoPor.get(prestamo.id) ?? 0;
       return { prestamo, devuelto, pendiente: Math.max(0, prestamo.importe - devuelto) };
     });
 }

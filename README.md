@@ -1,15 +1,19 @@
 # FERGO · App de gestión
 
-PWA para llevar el día a día de FERGO desde el móvil: registrar gastos en 3 toques, ver lo que hay en caja y lo ganado en el mes. Los datos se guardan en el propio dispositivo (IndexedDB); todavía no hay servidor.
+PWA para llevar el día a día de FERGO desde el móvil: registrar gastos y cobros, llevar los clientes y lo que deben, los aportes de Pablo y las fianzas, y ver lo que hay en caja y lo ganado en el mes. Los datos se guardan en el propio dispositivo (IndexedDB); todavía no hay servidor.
 
-Estado: ola 2 (base de la app y registro de gastos). Cobros, clientes, agenda, alertas e informes llegan en olas posteriores. La app sigue siendo una PWA: el pasaje a app Android nativa está documentado, no ejecutado (ver [migración a Android](docs/migracion-android.md)).
+Estado: ola 4 (clientes, cobros, aportes y fianzas). Agenda, alertas e informes llegan en olas posteriores. La app sigue siendo una PWA: el pasaje a app Android nativa está documentado, no ejecutado (ver [migración a Android](docs/migracion-android.md)).
 
 ## Qué hace hoy
 
 - Se instala como app (manifiesto, iconos y service worker con la app y la fuente en precache).
 - **Hoy**: En caja (con desglose efectivo/banco), Ganado en el mes, En fianzas y Aportes; bienvenida y saldo inicial en el primer uso.
 - **Registrar gasto**: importe en céntimos, categorías ordenadas por uso en 60 días, último medio de pago, foto del ticket, borrador, confirmación de importes atípicos y «Deshacer» durante 8 s.
-- **Movimientos**: lista del mes con filtros, editar y eliminar (borrado lógico) con deshacer.
+- **Registrar cobro, aporte o fianza**: cobro a cliente (trabajo, abono, anticipo u otro ingreso) repartido del pendiente más antiguo; aporte, préstamo y devolución de préstamo de Pablo; fianza con devolución entera o con descuento (gasto automático por la diferencia).
+- **Clientes**: listado con buscador y filtros, ficha (llamar, WhatsApp, cómo llegar, deuda, notas, «Este año») y alta o edición.
+- **Te deben**: cuotas de abono vencidas y trabajos sin cobrar, con antigüedad y «Ya pagó»; hoja «¿Cobraste a …?» desde «Trabajo hecho».
+- **Movimientos**: lista del mes con filtros (también por cliente), editar y eliminar (borrado lógico) con deshacer.
+- **Rol colaborador**: en Ajustes se elige quién usa el móvil (Felipe o Pablo); Pablo sólo registra aportes y préstamos.
 
 ## Uso
 
@@ -29,9 +33,9 @@ npm run verificar  # tipos, pruebas, build y comprobación de la PWA
 
 | Carpeta | Contenido |
 |---|---|
-| `src/screens/` | Pantallas: Hoy, Registrar, Movimientos, Saldo inicial, Guía de instalación, marcadores |
+| `src/screens/` | Pantallas: Hoy, Registrar (gasto y dinero), Movimientos, Clientes (listado, ficha, alta), Te deben, hoja de cobro, Saldo inicial, Guía de instalación, marcadores |
 | `src/components/` | Barra inferior, Deshacer, diálogos, cifras animadas, iconos |
-| `src/domain/` | Tipos, categorías iniciales, cálculo de cifras y orden de categorías |
+| `src/domain/` | Tipos, categorías iniciales, cálculo de cifras, pendientes (Te deben, fianzas, préstamos) y orden de categorías |
 | `src/db/` | IndexedDB con Dexie: esquema, siembra y repositorio |
 | `src/lib/` | Dinero (céntimos y formato es-ES), fechas en Madrid, imágenes, hooks |
 | `src/styles/` | Tokens de diseño y estilos |

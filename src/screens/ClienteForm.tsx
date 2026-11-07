@@ -4,6 +4,7 @@ import { Dialogo } from '../components/Dialogo';
 import { useDeshacer } from '../components/Deshacer';
 import { crearCliente, editarCliente, normalizarTelefono, type DatosCliente } from '../db/repo';
 import { TIPOS_TRABAJO, type Cliente, type Frecuencia, type Modalidad, type Servicio, type TipoTrabajo } from '../domain/tipos';
+import { DIAS_CORTOS, DIAS_LARGOS } from '../lib/fechas';
 import { centimosATexto, formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
 import { useCerrojo } from '../lib/hooks';
 import '../styles/clientes.css';
@@ -33,15 +34,7 @@ const FRECUENCIAS: { id: Frecuencia; nombre: string }[] = [
   { id: 'personalizada', nombre: 'Personalizada' },
 ];
 // 0 = domingo (como Date.getDay); la semana empieza en lunes.
-const DIAS: { id: number; corto: string; largo: string }[] = [
-  { id: 1, corto: 'Lun', largo: 'Lunes' },
-  { id: 2, corto: 'Mar', largo: 'Martes' },
-  { id: 3, corto: 'Mié', largo: 'Miércoles' },
-  { id: 4, corto: 'Jue', largo: 'Jueves' },
-  { id: 5, corto: 'Vie', largo: 'Viernes' },
-  { id: 6, corto: 'Sáb', largo: 'Sábado' },
-  { id: 0, corto: 'Dom', largo: 'Domingo' },
-];
+const DIAS = [1, 2, 3, 4, 5, 6, 0].map((id) => ({ id, nombre: DIAS_CORTOS[id], largo: DIAS_LARGOS[id] }));
 
 interface Borrador {
   nombre: string;
@@ -374,7 +367,7 @@ export function ClienteForm({ cliente, onCerrar }: { cliente?: Cliente; onCerrar
                 {grupoChips('Frecuencia de visitas', FRECUENCIAS, (v) => b.frecuencia === v, (v) => poner('frecuencia', b.frecuencia === v ? null : v), false)}
                 {grupoChips(
                   'Días preferidos',
-                  DIAS.map((d) => ({ id: d.id, nombre: d.corto, largo: d.largo })),
+                  DIAS,
                   (v) => b.dias.includes(v),
                   (v) => poner('dias', alternar(b.dias, v)),
                   true,

@@ -229,7 +229,7 @@ export function Registrar({
   const miniatura = foto?.url || fotoExistenteUrl;
 
   const colaborador = datos?.esColaborador ?? false;
-  const segmentado = !editar && (
+  const segmentadoTipos = !editar && (
     <div className="segmentado" role="radiogroup" aria-label="Tipo de movimiento">
       {TIPOS.map((t) => (
         <button
@@ -245,6 +245,17 @@ export function Registrar({
         </button>
       ))}
     </div>
+  );
+  // Hallazgo 1 del revisor de la ola 4: Pablo ve por qué hay pestañas tachadas (§3, §5.6.3: nunca solo por color).
+  const segmentado = segmentadoTipos && (
+    <>
+      {segmentadoTipos}
+      {colaborador && (
+        <p className="secundario" id="aviso-colaborador" style={{ margin: '6px 4px 0', fontSize: '0.8125rem' }}>
+          Solo puedes registrar aportes y préstamos.
+        </p>
+      )}
+    </>
   );
 
   if (colaborador && editar && (esSaldo || editar.tipo === 'gasto')) return <SoloLectura m={editar} onCerrar={onCerrar} />;

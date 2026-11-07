@@ -316,7 +316,10 @@ describe('Ficha (maqueta p. 4)', () => {
     expect(llamar.getAttribute('href')).toBe('tel:+34611566779');
     expect(screen.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')).toBe('https://wa.me/34611566779');
     const llegar = screen.getByRole('link', { name: 'Cómo llegar' });
-    expect(llegar.getAttribute('href')).toBe(`https://maps.apple.com/?daddr=${encodeURIComponent('Calle Mayor 3, Rivas-Vaciamadrid')}&dirflg=d`);
+    // jsdom no es un iPhone: Google Maps (Android, decisión de Ariel).
+    expect(llegar.getAttribute('href')).toBe(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Calle Mayor 3, Rivas-Vaciamadrid')}&travelmode=driving`,
+    );
     for (const a of [llamar, llegar]) {
       expect(a.getAttribute('target')).toBe('_blank');
       expect(a.getAttribute('rel')).toContain('noopener');
@@ -324,7 +327,9 @@ describe('Ficha (maqueta p. 4)', () => {
 
     await db.clientes.update(c.id, { lat: 40.3567, lon: -3.5321 });
     await waitFor(() =>
-      expect(screen.getByRole('link', { name: 'Cómo llegar' }).getAttribute('href')).toBe('https://maps.apple.com/?daddr=40.3567,-3.5321&dirflg=d'),
+      expect(screen.getByRole('link', { name: 'Cómo llegar' }).getAttribute('href')).toBe(
+        'https://www.google.com/maps/dir/?api=1&destination=40.3567,-3.5321&travelmode=driving',
+      ),
     );
 
     await user.click(screen.getByRole('button', { name: 'Volver a Clientes' }));
@@ -335,7 +340,24 @@ describe('Ficha (maqueta p. 4)', () => {
     expect(props.onEditar).toHaveBeenCalled();
     expect(props.onTrabajoHecho).toHaveBeenCalledWith(c.id);
     expect(props.onVerMovimientos).toHaveBeenCalledWith(c.id);
-    expect(screen.getByText('Las visitas aparecerán aquí cuando la agenda esté lista.')).toBeTruthy();
+    expect(screen.getByText('Aún no hay visitas de este cliente.')).toBeTruthy();
+  });
+
+  it('Cómo llegar abre Apple Maps en un iPhone', async () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      configurable: true,
+    });
+    try {
+      const c = await nuevoCliente({ nombre: 'Fam. Ruiz', direccion: 'Calle Mayor 3', municipio: 'Rivas-Vaciamadrid', lat: 40.3567, lon: -3.5321 });
+      ficha(c.id);
+      const llegar = await screen.findByRole('link', { name: 'Cómo llegar' });
+      expect(llegar.getAttribute('href')).toBe('https://maps.apple.com/?daddr=40.3567,-3.5321&dirflg=d');
+    } finally {
+      if (original) Object.defineProperty(navigator, 'userAgent', original);
+      else delete (navigator as unknown as Record<string, unknown>).userAgent;
+    }
   });
 
   it('sin teléfono ni dirección: "Añadir teléfono" y "Añadir dirección" llevan a Editar', async () => {

@@ -1,0 +1,183 @@
+/* Pantalla Hoy, ola 5 (§10.1.1, mockup p. 1, docs/maqueta.md §1.1): aviso contextual (C5), contador (C6),
+   tarjetas de visita (C7), botón Hecho (C8), resumen semanal (§10.1.2) y versión al pie. */
+
+/* C5 · Aviso contextual: ámbar con icono reloj y botón relleno ámbar oscuro */
+.aviso-contextual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  background: var(--ambar-fondo);
+  color: var(--ambar-texto);
+  border-radius: var(--radio-tarjeta);
+  padding: 12px 12px 12px 14px;
+}
+.aviso-contextual .texto {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+.aviso-contextual .boton-aviso {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radio-boton);
+  background: var(--ambar-texto);
+  color: #fff;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* C6 · Contador «1 de 3 hechas» */
+.contador-hechas {
+  color: var(--texto-3);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* C7 · Tarjeta de visita */
+.visita-hoy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--superficie);
+  border-radius: var(--radio-tarjeta);
+  padding: 6px 12px 6px 6px;
+  border: 2px solid transparent;
+}
+.visita-hoy + .visita-hoy {
+  margin-top: 10px;
+}
+.visita-hoy.proxima {
+  border-color: var(--lima);
+}
+.visita-hoy.hecha {
+  opacity: 0.75;
+}
+.visita-hoy .abrir {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px 6px;
+  text-align: left;
+  border-radius: 12px;
+}
+.visita-hoy .hora {
+  font-weight: 800;
+  font-size: 0.9375rem;
+  color: var(--verde-oscuro);
+  min-width: 3.2em;
+}
+.visita-hoy .textos {
+  flex: 1;
+  min-width: 0;
+}
+.visita-hoy .cliente {
+  display: block;
+  font-weight: 700;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.visita-hoy.hecha .cliente {
+  text-decoration: line-through;
+}
+.visita-hoy .linea {
+  display: block;
+  color: var(--texto-3);
+  font-size: 0.875rem;
+  margin-top: 2px;
+}
+.visita-hoy .estado-hecha {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--verde-medio);
+  margin-top: 2px;
+}
+
+/* C8 · Botón Hecho (44 pt): relleno lima en la próxima; contorneado verde medio en el resto */
+.boton-hecho {
+  min-height: 44px;
+  min-width: 76px;
+  padding: 0 14px;
+  border-radius: var(--radio-boton);
+  border: 2px solid var(--verde-medio);
+  color: var(--verde-medio);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.boton-hecho.relleno {
+  background: var(--lima);
+  border-color: var(--lima);
+  color: var(--verde-oscuro);
+}
+.boton-anadir-cobro {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--radio-boton);
+  color: var(--verde-medio);
+  font-weight: 700;
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+.check-hecha {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--lima-suave);
+  color: var(--verde-oscuro);
+  flex-shrink: 0;
+}
+
+/* Vacío: «Mañana: N visitas» con enlace a Agenda */
+.enlace-agenda {
+  min-height: 44px;
+  margin-top: 4px;
+  color: var(--verde-medio);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Resumen semanal positivo (§10.1.2) */
+.resumen-semanal {
+  margin-top: 14px;
+  background: var(--lima-suave);
+  color: var(--verde-oscuro);
+}
+.resumen-semanal .titulo {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.resumen-semanal .mejora {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+  color: var(--verde-medio);
+  font-weight: 600;
+}
+
+/* Versión al pie de Hoy (pedido de Ariel; pasa a Ajustes cuando exista) */
+.version-app {
+  margin: 28px 0 8px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--texto-3);
+}
+
+/* Hoja Hecho: misma hoja que «¿Cobraste a …?» (HojaCobro), con el detalle de la visita */
+.hoja-hecho-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hoja-hecho-cabecera h2 {
+  flex: 1;
+}
+.hoja-hecho-detalle {
+  margin: 0 0 8px;
+}

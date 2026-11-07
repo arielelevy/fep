@@ -5,6 +5,7 @@ import { formatearEuros } from '../lib/dinero';
 import { claveDia } from '../lib/fechas';
 import { useEnLinea } from '../lib/hooks';
 import { BandaSinConexion } from './Hoy';
+import '../styles/clientes.css';
 
 // Lista de pendientes "Te deben" (§9.3, §9.4, §10.1.1.2: la celda Te deben de Hoy lleva aquí).
 // Sin maqueta propia: filas como las de Movimientos (PDF p. 3) y botón "Ya pagó" como la tarjeta de deuda
@@ -41,8 +42,8 @@ export function TeDeben({ onVolver, etiquetaVolver, onYaPago }: { onVolver: () =
             return (
               <li key={`${p.cliente_id}-${p.clave}`} className="fila-pendiente">
                 <span className="textos">
-                  <span className="mov-titulo">{nombre(p.cliente_id)}</span>
-                  <span className="mov-sub">{p.concepto}</span>
+                  <span className="mov-titulo nombre-pendiente">{nombre(p.cliente_id)}</span>
+                  <span className="mov-sub concepto-pendiente">{p.concepto}</span>
                   <span className={`chip-estado ${nivel === 'neutro' ? 'neutro' : nivel}`}>{textoAntiguedad(dias)}</span>
                 </span>
                 <span className="mov-importe">{formatearEuros(p.pendiente)}</span>

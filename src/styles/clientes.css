@@ -72,9 +72,16 @@
   display: block;
   font-weight: 700;
   font-size: 1rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Hallazgo 2 del revisor de la ola 4: el nombre pasa a dos líneas en vez de cortarse con «…» (§5.6.5). */
+  overflow-wrap: anywhere;
+}
+
+/* Te deben (TeDeben.tsx): nombre y concepto también pasan de línea en vez de cortarse. */
+.fila-pendiente .nombre-pendiente,
+.fila-pendiente .concepto-pendiente {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
 }
 .fila-cliente .linea {
   display: flex;

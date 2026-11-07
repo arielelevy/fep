@@ -5,11 +5,12 @@ import { useDeshacer } from '../components/Deshacer';
 import { useDatos } from '../db/datos';
 import { crearMovimiento, devolverFianza, editarMovimiento, eliminarMovimiento, puedeTipo, type Deshacer } from '../db/repo';
 import { prestamos as listaPrestamos, fianzas as listaFianzas } from '../domain/cifras';
-import { calcularPendientes, diasEntre, nivelAntiguedad, repartirCobro, textoAntiguedad, totalPendiente, type Pendiente } from '../domain/pendientes';
-import { MEDIOS_PAGO, etiquetaEditado, etiquetaEliminado, etiquetaGuardado, type Cliente, type MedioPago, type Movimiento, type TipoMovimiento } from '../domain/tipos';
+import { calcularPendientes, cobradoPorClave, diasEntre, nivelAntiguedad, repartirCobro, textoAntiguedad, totalPendiente, type Pendiente } from '../domain/pendientes';
+import { MEDIOS_PAGO, etiquetaEditado, etiquetaEliminado, etiquetaGuardado, nombreTipo, type Cliente, type MedioPago, type Movimiento, type TipoMovimiento } from '../domain/tipos';
 import { centimosATexto, formatearEuros, formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
-import { claveDia, claveMes, etiquetaFechaCorta, fechaMaximaRegistro, instanteDeClaveDia, nombreMes } from '../lib/fechas';
+import { claveDia, claveMes, etiquetaFechaCorta, fechaMaximaRegistro, instanteDeClaveDia, nombreMes, sumarMeses } from '../lib/fechas';
 import { useCerrojo } from '../lib/hooks';
+import { sinAcentos } from './Clientes';
 
 // Bloques Cobro, Aporte y Fianza de la hoja Registrar (§10.2.2), con el estilo del mockup "2. Registrar"
 // (PDF p. 2, docs/maqueta.md §1.2): importe grande, tarjeta de filas, chips de pago y botón lima de pie.
@@ -30,6 +31,12 @@ export interface Compartido {
   setMedio: (v: MedioPago) => void;
   nota: string;
   setNota: (v: string) => void;
+}
+
+/** Precarga del importe al elegir cliente (§10.2.2): lo pendiente si lo hay; si no, la cuota o el precio habitual. */
+function precargaDe(x: Cliente | undefined, p: Pendiente[]): { total: number; precarga: number } {
+  const total = totalPendiente(p);
+  return { total, precarga: total || (x?.modalidad === 'abono' ? x.cuota_abono : x?.precio_habitual) || 0 };
 }
 
 export function tipoHojaDe(t: TipoMovimiento): TipoDinero | 'gasto' {
@@ -94,18 +101,27 @@ export function RegistrarDinero({
   useEffect(() => {
     if (precargado.current || !datos || !clienteInicial) return;
     precargado.current = true;
-    const x = datos.clientes.find((y) => y.id === clienteInicial);
-    const total = totalPendiente(pendientes);
-    const precarga = total || (x?.modalidad === 'abono' ? x.cuota_abono : x?.precio_habitual) || 0;
+    const { precarga } = precargaDe(datos.clientes.find((y) => y.id === clienteInicial), pendientes);
     if (precarga) c.setTextoImporte(centimosATexto(precarga));
   }, [datos, clienteInicial, pendientes, c]);
   const pendientesAbono = pendientes.filter((p) => p.periodo);
   const sub = subCobro ?? (pendientesAbono.length || (cliente?.modalidad === 'abono' && !pendientes.length) ? 'abono' : 'trabajo');
-  const mesAbono = pendientesAbono[0]?.periodo ?? claveMes(new Date());
-  const prestamosAbiertos = listaPrestamos(movs).filter((p) => p.pendiente > 0);
+  // Sin cuota vencida, el abono paga por adelantado el primer mes (desde el actual) que aún no está pagado entero.
+  const adelanto = useMemo(() => {
+    const cuota = cliente?.cuota_abono ?? 0;
+    if (editar?.periodo_abono || !cliente || cuota <= 0) return { mes: editar?.periodo_abono ?? claveMes(new Date()), resta: cuota };
+    const cobrado = cobradoPorClave(movs.filter((m) => m.id !== editar?.id));
+    let mes = claveMes(new Date());
+    for (let i = 0; i < 24 && (cobrado.get(`${cliente.id}|abono:${mes}`) ?? 0) >= cuota; i++) mes = sumarMeses(mes, 1);
+    return { mes, resta: cuota - (cobrado.get(`${cliente.id}|abono:${mes}`) ?? 0) };
+  }, [cliente, movs, editar?.id, editar?.periodo_abono]);
+  const mesAbono = pendientesAbono[0]?.periodo ?? adelanto.mes;
+  const prestamosTodos = useMemo(() => listaPrestamos(movs), [movs]);
+  const fianzasTodas = useMemo(() => listaFianzas(movs), [movs]);
+  const prestamosAbiertos = prestamosTodos.filter((p) => p.pendiente > 0);
   const prestamoPendiente = prestamosAbiertos.reduce((s, p) => s + p.pendiente, 0);
-  const sugerenciasFianza = [...new Set(listaFianzas(movs).map((f) => f.entrega.fianza?.entregada_a).filter(Boolean))] as string[];
-  const fianzaEditada = editar?.tipo === 'fianza_entregada' ? listaFianzas(movs).find((f) => f.entrega.id === editar.id) : undefined;
+  const sugerenciasFianza = [...new Set(fianzasTodas.map((f) => f.entrega.fianza?.entregada_a).filter(Boolean))] as string[];
+  const fianzaEditada = editar?.tipo === 'fianza_entregada' ? fianzasTodas.find((f) => f.entrega.id === editar.id) : undefined;
 
   const importe = parsearImporte(c.textoImporte);
   const colaborador = datos?.esColaborador ?? false;
@@ -124,9 +140,7 @@ export function RegistrarDinero({
     setDesmarcados(new Set());
     if (!editar && datos) {
       // Precarga (§10.2.2): deuda pendiente si la hay; si no, precio habitual o cuota.
-      const p = calcularPendientes(datos.clientes, datos.deudas, movs, new Date(), x.id);
-      const total = totalPendiente(p);
-      const precarga = total || (x.modalidad === 'abono' ? x.cuota_abono : x.precio_habitual) || 0;
+      const { total, precarga } = precargaDe(x, calcularPendientes(datos.clientes, datos.deudas, movs, new Date(), x.id));
       if (precarga && !c.textoImporte) c.setTextoImporte(centimosATexto(precarga));
       else if (total) c.setTextoImporte(centimosATexto(total));
     }
@@ -142,7 +156,12 @@ export function RegistrarDinero({
   };
 
   const faltaCliente = tipo === 'cobro' && sub !== 'otro' && !clienteId;
-  const excedeDevolucion = tipoFinal === 'devolucion_prestamo' && !editar && importe !== null && importe > prestamoPendiente;
+  // Al editar una devolución, el tope es lo pendiente de su préstamo más lo que ella misma devolvía.
+  const topeDevolucion =
+    editar?.tipo === 'devolucion_prestamo'
+      ? (prestamosTodos.find((p) => p.prestamo.id === editar.prestamo_id)?.pendiente ?? 0) + editar.importe
+      : prestamoPendiente;
+  const excedeDevolucion = tipoFinal === 'devolucion_prestamo' && importe !== null && importe > topeDevolucion;
   const faltaFianza = tipo === 'fianza' && !editar && !entregadaA.trim();
   const puedeGuardar = !soloLectura && importe !== null && importe > 0 && !faltaCliente && !excedeDevolucion && !faltaFianza;
 
@@ -156,10 +175,17 @@ export function RegistrarDinero({
 
   const saldosCobro = (imp: number) => {
     if (tipoFinal !== 'cobro') return { saldos: [], periodo_abono: null };
+    // Editar sin cambiar importe ni cliente (una nota, una fecha) no reparte de nuevo: sigue saldando lo mismo.
+    if (editar && imp === editar.importe && clienteId === editar.cliente_id)
+      return { saldos: editar.saldos ?? [], periodo_abono: editar.periodo_abono ?? null };
     const aplicables = sub === 'abono' ? marcados.filter((p) => p.periodo) : marcados.filter((p) => sub === 'trabajo' ? !p.periodo : true);
-    let saldos = repartirCobro(imp, aplicables.length ? aplicables : marcados);
-    // Abono sin cuota vencida: paga el mes en curso por adelantado (hasta la cuota).
-    if (sub === 'abono' && saldos.length === 0 && cliente?.cuota_abono) saldos = [{ clave: `abono:${mesAbono}`, importe: Math.min(imp, cliente.cuota_abono) }];
+    const lista = aplicables.length ? aplicables : marcados;
+    // Al editar, lo que el cobro ya saldaba va primero; el resto, del más antiguo al más reciente.
+    const propias = new Set((editar?.saldos ?? []).map((x) => x.clave));
+    const primero = repartirCobro(imp, lista.filter((p) => propias.has(p.clave)));
+    const usado = primero.reduce((t, x) => t + x.importe, 0);
+    let saldos = [...primero, ...repartirCobro(imp - usado, lista.filter((p) => !propias.has(p.clave)))];
+    if (sub === 'abono' && saldos.length === 0 && adelanto.resta > 0) saldos = [{ clave: `abono:${adelanto.mes}`, importe: Math.min(imp, adelanto.resta) }];
     const periodo = saldos.find((s) => s.clave.startsWith('abono:'))?.clave.slice(6) ?? null;
     return { saldos, periodo_abono: periodo };
   };
@@ -169,9 +195,10 @@ export function RegistrarDinero({
     setError('');
     try {
       const comunes = { importe, fecha: fechaFinal(), medio_pago: c.medio, nota: c.nota };
+      const fianza = { entregada_a: entregadaA.trim(), motivo: motivo.trim() || 'Furgoneta' };
       let deshacer: Deshacer;
       if (editar) {
-        const extra = editar.tipo === 'fianza_entregada' ? { fianza: { entregada_a: entregadaA.trim(), motivo: motivo.trim() || 'Furgoneta' } } : editar.tipo === 'cobro' ? saldosCobro(importe) : {};
+        const extra = editar.tipo === 'fianza_entregada' ? { fianza } : editar.tipo === 'cobro' ? saldosCobro(importe) : {};
         deshacer = (await editarMovimiento(editar.id, { ...comunes, ...extra })).deshacer;
       } else if (tipoFinal === 'devolucion_prestamo') {
         // Devuelve del préstamo más antiguo al más reciente.
@@ -188,7 +215,7 @@ export function RegistrarDinero({
         const clave = sub === 'abono' ? 'cobro_abono' : sub === 'anticipo' ? 'anticipo' : sub === 'otro' ? 'otros_ingresos' : 'cobro_trabajo';
         deshacer = (await crearMovimiento({ ...comunes, tipo: tipoFinal, categoria_id: categoriaIngreso(clave), cliente_id: clienteId, ...saldosCobro(importe) })).deshacer;
       } else if (tipo === 'fianza') {
-        deshacer = (await crearMovimiento({ ...comunes, tipo: 'fianza_entregada', categoria_id: null, fianza: { entregada_a: entregadaA.trim(), motivo: motivo.trim() || 'Furgoneta' } })).deshacer;
+        deshacer = (await crearMovimiento({ ...comunes, tipo: 'fianza_entregada', categoria_id: null, fianza })).deshacer;
       } else {
         deshacer = (await crearMovimiento({ ...comunes, tipo: tipoFinal, categoria_id: null })).deshacer;
       }
@@ -217,7 +244,7 @@ export function RegistrarDinero({
     cobro: 'Guardar cobro', anticipo: 'Guardar anticipo', otro_ingreso: 'Guardar ingreso', aporte: 'Guardar aporte',
     prestamo: 'Guardar préstamo', devolucion_prestamo: 'Guardar devolución', fianza_entregada: 'Guardar fianza', fianza_devuelta: 'Guardar devolución',
   };
-  const titulo = editar ? `Editar ${etiquetaGuardado(editar.tipo).split(' guardad')[0].toLowerCase()}` : 'Nuevo movimiento';
+  const titulo = editar ? `Editar ${nombreTipo(editar.tipo).nombre.toLowerCase()}` : 'Nuevo movimiento';
   const aportante = datos?.usuarios.find((u) => u.rol === 'colaborador')?.etiqueta_aportante ?? 'papá';
 
   return (
@@ -288,7 +315,7 @@ export function RegistrarDinero({
                           <input type="checkbox" checked={!desmarcados.has(p.clave)} onChange={() => alternarMarcado(p)} className="casilla" />
                           <span style={{ flex: 1 }}>
                             <span style={{ display: 'block', fontWeight: 600 }}>{p.concepto}</span>
-                            <span className={`chip-estado ${nivelAntiguedad(dias) === 'neutro' ? 'neutro' : nivelAntiguedad(dias)}`}>{textoAntiguedad(dias)}</span>
+                            <span className={`chip-estado ${nivelAntiguedad(dias)}`}>{textoAntiguedad(dias)}</span>
                           </span>
                           <span className="valor fuerte">{formatearEuros(p.pendiente)}</span>
                         </label>
@@ -316,10 +343,11 @@ export function RegistrarDinero({
                 {subAporte === 'aporte' && ` Es dinero de ${aportante} que no se devuelve.`}
                 {subAporte === 'prestamo' && ` Es dinero de ${aportante} que se devuelve.`}
               </p>
-              {subAporte === 'devolver' && !editar && (
+              {subAporte === 'devolver' && (!editar || excedeDevolucion) && (
                 <p className="texto-aclaratorio neutro">
-                  {prestamoPendiente > 0 ? `Préstamo pendiente: ${formatearEuros(prestamoPendiente)}` : 'No hay ningún préstamo pendiente.'}
-                  {excedeDevolucion && ` · Como mucho ${formatearEuros(prestamoPendiente)}.`}
+                  {editar
+                    ? `Como mucho ${formatearEuros(topeDevolucion)}.`
+                    : `${prestamoPendiente > 0 ? `Préstamo pendiente: ${formatearEuros(prestamoPendiente)}` : 'No hay ningún préstamo pendiente.'}${excedeDevolucion ? ` · Como mucho ${formatearEuros(topeDevolucion)}.` : ''}`}
                 </p>
               )}
             </>
@@ -442,11 +470,11 @@ export function RegistrarDinero({
 /** Buscador de clientes con los 5 más recientes arriba (§10.2.1). */
 export function ElegirCliente({ clientes, movs, onElegir, onCerrar }: { clientes: Cliente[]; movs: Movimiento[]; onElegir: (c: Cliente) => void; onCerrar: () => void }) {
   const [busca, setBusca] = useState('');
-  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const ultimo = new Map<string, string>();
   for (const m of movs) if (m.cliente_id && (ultimo.get(m.cliente_id) ?? '') < m.fecha) ultimo.set(m.cliente_id, m.fecha);
+  const q = sinAcentos(busca);
   const recientes = busca ? [] : [...clientes].filter((x) => ultimo.has(x.id)).sort((a, b) => ultimo.get(b.id)!.localeCompare(ultimo.get(a.id)!)).slice(0, 5);
-  const filtrados = clientes.filter((x) => norm(`${x.nombre} ${x.direccion} ${x.telefono ?? ''}`).includes(norm(busca)) && !recientes.includes(x));
+  const filtrados = clientes.filter((x) => sinAcentos(`${x.nombre} ${x.direccion} ${x.telefono ?? ''}`).includes(q) && !recientes.includes(x));
   const fila = (x: Cliente) => (
     <button key={x.id} type="button" className="fila tocable" onClick={() => onElegir(x)}>
       <span className="nombre" style={{ flex: 1 }}>{x.nombre}</span>

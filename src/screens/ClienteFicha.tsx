@@ -8,24 +8,19 @@ import { margenCliente } from '../domain/cifras';
 import { calcularPendientes, textoAntiguedad } from '../domain/pendientes';
 import type { Cliente } from '../domain/tipos';
 import { formatearEuros } from '../lib/dinero';
-import { desdeMadrid, partesMadrid } from '../lib/fechas';
+import { MESES, claveDia, desdeMadrid, partesMadrid } from '../lib/fechas';
+import { horaDe } from '../domain/agenda';
 import { useEnLinea } from '../lib/hooks';
+import { urlComoLlegar } from '../lib/mapas';
 import { ChipsServicio, resumirDeudas, textoModalidad } from './Clientes';
 import { BandaSinConexion } from './Hoy';
 import '../styles/clientes.css';
+import '../styles/agenda.css';
 
 // Ficha de cliente (§10.4.2). Construida a rajatabla contra la maqueta, PDF p. 4 (docs/maqueta.md §1.4):
 // "‹ Clientes", nombre 26 pt y chips (C24, C25), tres acciones rápidas de 64 pt (C28), tarjeta de deuda
 // con "Ya pagó" (C29), NOTAS (C30), ESTE AÑO (C31) y ÚLTIMAS VISITAS (C32). Añadidos de la especificación
 // que la maqueta no muestra: "Editar", "Ver movimientos", "Desactivar cliente" y la deuda en rojo con 15+ días.
-
-/** Enlace de "Cómo llegar": coordenadas si las hay; si no, dirección y municipio. */
-export function enlaceComoLlegar(c: Pick<Cliente, 'lat' | 'lon' | 'direccion' | 'municipio'>): string | null {
-  if (c.lat !== null && c.lon !== null) return `https://maps.apple.com/?daddr=${c.lat},${c.lon}&dirflg=d`;
-  if (!c.direccion.trim()) return null;
-  const destino = [c.direccion.trim(), c.municipio.trim()].filter(Boolean).join(', ');
-  return `https://maps.apple.com/?daddr=${encodeURIComponent(destino)}&dirflg=d`;
-}
 
 export function ClienteFicha({
   clienteId,
@@ -34,12 +29,15 @@ export function ClienteFicha({
   onYaPago,
   onTrabajoHecho,
   onVerMovimientos,
+  onAbrirVisita,
 }: {
   clienteId: string;
   onVolver: () => void;
   onEditar: () => void;
   onYaPago: (clienteId: string) => void;
   onTrabajoHecho: (clienteId: string) => void;
+  /** Abre el detalle de una visita (ola 5). */
+  onAbrirVisita?: (visitaId: string) => void;
   onVerMovimientos: (clienteId: string) => void;
 }) {
   const datos = useDatos();
@@ -94,6 +92,7 @@ export function ClienteFicha({
         onEditar={onEditar}
         onYaPago={onYaPago}
         onTrabajoHecho={onTrabajoHecho}
+        onAbrirVisita={onAbrirVisita}
         onVerMovimientos={onVerMovimientos}
       />
     </main>
@@ -108,6 +107,7 @@ function Ficha({
   onYaPago,
   onTrabajoHecho,
   onVerMovimientos,
+  onAbrirVisita,
 }: {
   cliente: Cliente;
   volver: ReactNode;
@@ -115,11 +115,24 @@ function Ficha({
   onEditar: () => void;
   onYaPago: (clienteId: string) => void;
   onTrabajoHecho: (clienteId: string) => void;
+  /** Abre el detalle de una visita (ola 5). */
+  onAbrirVisita?: (visitaId: string) => void;
   onVerMovimientos: (clienteId: string) => void;
 }) {
   const datos = useDatos()!;
   const { mostrar } = useDeshacer();
   const [confirmar, setConfirmar] = useState(false);
+  const [todasVisitas, setTodasVisitas] = useState(false);
+  // Últimas visitas (§10.4.2.7): la próxima programada y las 5 más recientes (con "Ver todas" si hay más).
+  const hoy = claveDia(new Date());
+  const delCliente = datos.visitas.filter((v) => v.cliente_id === cliente.id);
+  const proxima = delCliente
+    .filter((v) => v.estado === 'programada' && v.fecha >= hoy)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || horaDe(a).localeCompare(horaDe(b)))[0];
+  const pasadas = delCliente
+    .filter((v) => v !== proxima && (v.fecha < hoy || v.estado !== 'programada'))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha) || horaDe(b).localeCompare(horaDe(a)));
+  const listaVisitas = [...(proxima ? [proxima] : []), ...(todasVisitas ? pasadas : pasadas.slice(0, 5))];
   const [error, setError] = useState('');
 
   const deuda = useMemo(
@@ -134,7 +147,7 @@ function Ficha({
   );
 
   const tel = cliente.telefono;
-  const llegar = enlaceComoLlegar(cliente);
+  const llegar = urlComoLlegar(cliente);
 
   const cambiarActivo = async () => {
     setConfirmar(false);
@@ -245,7 +258,37 @@ function Ficha({
 
       <h2 className="etiqueta-seccion">Últimas visitas</h2>
       <section className="tarjeta" aria-label="Últimas visitas">
-        <p className="secundario visitas-vacio">Las visitas aparecerán aquí cuando la agenda esté lista.</p>
+        {listaVisitas.length === 0 ? (
+          <p className="secundario visitas-vacio">Aún no hay visitas de este cliente.</p>
+        ) : (
+          <ul className="lista-visitas-cliente" style={{ listStyle: 'none', margin: '0 0 12px', padding: 0 }}>
+            {listaVisitas.map((v) => {
+              const [, m, d] = v.fecha.split('-').map(Number);
+              const dia = v.fecha === hoy ? 'Hoy' : `${d} ${MESES[m - 1].slice(0, 3)}`;
+              const trabajo = v.descripcion || v.tipos_trabajo.join(', ');
+              const estado = v.estado === 'hecha' ? 'Hecha' : v.estado === 'cancelada' ? 'Cancelada' : 'Programada';
+              return (
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    className="fila tocable"
+                    style={{ paddingLeft: 0, paddingRight: 0 }}
+                    onClick={() => onAbrirVisita?.(v.id)}
+                    aria-label={`${dia} · ${trabajo}: ${estado}`}
+                  >
+                    <span className="nombre" style={{ flex: 1 }}>{dia} · {trabajo}</span>
+                    <span className={`chip-estado ${v.estado === 'hecha' ? 'hecha' : 'neutro'}`}>{estado}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {pasadas.length > 5 && !todasVisitas && (
+          <button type="button" className="boton-texto tocable" onClick={() => setTodasVisitas(true)}>
+            Ver todas
+          </button>
+        )}
         {!soloLectura && cliente.activo && (
           <button type="button" className="boton-secundario tocable" onClick={() => onTrabajoHecho(cliente.id)}>
             Trabajo hecho

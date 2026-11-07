@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useDeshacer } from '../components/Deshacer';
 import { useDatos } from '../db/datos';
@@ -6,6 +6,7 @@ import { anotarTrabajo } from '../db/repo';
 import { MEDIOS_PAGO, TIPOS_TRABAJO, type MedioPago } from '../domain/tipos';
 import { centimosATexto, formatearEuros, formatearMientrasEscribe, parsearImporte } from '../lib/dinero';
 import { useCerrojo } from '../lib/hooks';
+import { HojaAbono } from './HojaHecho';
 
 // Hoja "Hecho" / "¿Cobraste a [cliente]?" (§10.1.4; decisión H5: construir con el estilo de la maqueta).
 // Hoja inferior como los diálogos de la app: botón principal lima "Sí, [importe]", chips de medio de pago
@@ -20,13 +21,23 @@ export function HojaCobro({ clienteId, onCerrar }: { clienteId: string; onCerrar
   const [concepto, setConcepto] = useState(conceptoInicial);
   const [textoPrecio, setTextoPrecio] = useState(cliente?.precio_habitual ? centimosATexto(cliente.precio_habitual) : '');
   const [medio, setMedio] = useState<MedioPago>(datos?.ultimoMedio ?? 'efectivo');
+  // Si la hoja se monta antes de que carguen los datos, toma el último medio al llegar (si no se tocó).
+  const [medioTocado, setMedioTocado] = useState(false);
+  const ultimo = datos?.ultimoMedio;
+  useEffect(() => {
+    if (!medioTocado && ultimo) setMedio(ultimo);
+  }, [ultimo, medioTocado]);
   const [otra, setOtra] = useState(false);
   const [textoOtra, setTextoOtra] = useState('');
   const [error, setError] = useState('');
   const precio = parsearImporte(textoPrecio);
   const otraCantidad = parsearImporte(textoOtra);
+  // Cliente de abono (§10.1.4, hallazgo 3 del revisor de la ola 4): primero «¿Te pagó el abono de [mes]?»;
+  // «Es un trabajo aparte» vuelve a esta hoja para un trabajo fuera del abono.
+  const [aparte, setAparte] = useState(false);
 
   if (!cliente) return null;
+  if (cliente.modalidad === 'abono' && !aparte) return <HojaAbono clienteId={clienteId} onCerrar={onCerrar} onTrabajoAparte={() => setAparte(true)} />;
 
   const guardar = async (cobrado: number) => {
     if (!precio || !cerrojo.tomar()) return;
@@ -78,7 +89,10 @@ export function HojaCobro({ clienteId, onCerrar }: { clienteId: string; onCerrar
           {campoImporte('precio-trabajo', 'Precio', textoPrecio, setTextoPrecio, !textoPrecio)}
           <div className="chips" role="radiogroup" aria-label="Pago" style={{ marginLeft: 0 }}>
             {MEDIOS_PAGO.map((m) => (
-              <button key={m.id} type="button" role="radio" aria-checked={medio === m.id} className="chip tocable" onClick={() => setMedio(m.id)}>
+              <button key={m.id} type="button" role="radio" aria-checked={medio === m.id} className="chip tocable" onClick={() => {
+                setMedio(m.id);
+                setMedioTocado(true);
+              }}>
                 {m.nombre}
               </button>
             ))}
