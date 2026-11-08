@@ -17,9 +17,11 @@
 import type { AlertaClima } from '../../dominio/alertas';
 import type { Cliente, Visita } from '../../domain/tipos';
 import { TIPOS_TRABAJO } from '../../domain/tipos';
-import { claveDia, desdeMadrid, diaSemanaDeClave, partesMadrid, sumarDias } from '../../lib/fechas';
+import { minutos } from '../../clima/horas';
+import { claveDia, diaSemanaDeClave, partesMadrid, sumarDias } from '../../lib/fechas';
 import type { AlertaPreparacion } from '../alertas/preparacion/motor';
-import { avisosInmediatos, claveResumen, enSilencio } from '../alertas/preparacion/planificador';
+import { avisosInmediatos, claveInmediata, claveResumen, enSilencio } from '../alertas/preparacion/planificador';
+import { instanteLocal } from '../preparar/logica';
 import type { ConfigAvisos } from './config';
 import { enlaceA } from './enlaces';
 
@@ -60,7 +62,6 @@ export interface EntradaPlan {
 }
 
 const PESO = { urgente: 0, decision: 1, info: 2 } as const;
-const minutos = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const nombreTipo = (t: string) => TIPOS_TRABAJO.find((x) => x.id === t)?.nombre ?? t;
 
 export const claveClima = (a: Pick<AlertaClima, 'clave_dedupe'>) => `clima|${a.clave_dedupe}`;
@@ -69,8 +70,7 @@ export const claveVisitaPrevia = (v: Pick<Visita, 'id' | 'fecha' | 'hora_inicio'
 
 /** ¿La hora del resumen de hoy cae en horas de silencio? Entonces sale igual (§12.1.3). */
 function resumenEnSilencio(dia: string, cfg: ConfigAvisos): boolean {
-  const [a, m, d] = dia.split('-').map(Number);
-  return enSilencio(desdeMadrid(a, m, d, Number(cfg.horaResumen.slice(0, 2)), Number(cfg.horaResumen.slice(3, 5))), cfg);
+  return enSilencio(instanteLocal(`${dia}T${cfg.horaResumen}`), cfg);
 }
 
 const plural = (n: number, uno: string, varios: string) => (n === 1 ? `1 ${uno}` : `${n} ${varios}`);
@@ -140,12 +140,10 @@ function visitasPrevias(e: EntradaPlan, silencio: boolean): Notificacion[] {
   const antes = e.config.recordatorioVisita;
   if (!antes || silencio) return [];
   const hoy = claveDia(e.ahora);
-  const [a, m, d] = hoy.split('-').map(Number);
   return e.visitas
     .filter((v) => v.fecha === hoy && v.estado === 'programada' && !v.eliminado_en && !e.registro[claveVisitaPrevia(v)])
     .filter((v) => {
-      const h = v.hora_inicio ?? '09:00';
-      const inicio = desdeMadrid(a, m, d, Number(h.slice(0, 2)), Number(h.slice(3, 5))).getTime();
+      const inicio = instanteLocal(`${hoy}T${v.hora_inicio ?? '09:00'}`).getTime();
       return e.ahora.getTime() >= inicio - antes * 60_000 && e.ahora.getTime() < inicio;
     })
     .map((v) => {
@@ -190,7 +188,7 @@ export function planificar(e: EntradaPlan): Notificacion[] {
 
   // Preparación (ola 8): su propia regla decide hora y silencio (lo programado por Felipe sale a su hora).
   for (const aviso of avisosInmediatos(e.alertasPreparacion, e.avisadosPreparacion, e.ahora, e.config)) {
-    const alerta = e.alertasPreparacion.find((x) => x.tipo === aviso.tipo && x.texto === aviso.texto);
+    const alerta = e.alertasPreparacion.find((x) => claveInmediata(x) === aviso.clave);
     const enlace = enlaceA({ pantalla: 'preparar', fecha: aviso.destino.fecha });
     r.push({
       clave: aviso.clave,

@@ -70,6 +70,6 @@ npm run verificar  # tipos, pruebas (src/ y cada carpeta tests/*/), build y comp
 
 - [Referencia escrita de la maqueta](docs/maqueta.md), a partir de `FERGO App Mockups.pdf`.
 - [Evidencia de los criterios de aceptación](docs/criterios-aceptacion.md): matriz de los 34 criterios de §18 con la prueba que cubre cada uno.
-- [Notas de la versión 0.1.0](docs/releases/0.1.0.md).
+- Notas de las versiones: [1.0.0](docs/releases/1.0.0.md) (v1 completa) y [0.1.0](docs/releases/0.1.0.md).
 - [Pasaje a app Android nativa con Capacitor](docs/migracion-android.md): requisitos, pasos, compilación, recorrido de aceptación y decisiones pendientes (documentado, no ejecutado).
 - Informes de cada ola en [`review/factory/`](review/factory/): ficha, informes de los frentes y QA.

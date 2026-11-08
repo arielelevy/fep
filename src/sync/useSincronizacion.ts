@@ -8,7 +8,8 @@ export function useSincronizacion(): void {
   useEffect(() => {
     let vivo = true;
     const vuelta = () => {
-      if (!vivo) return;
+      // Sin servidor no hay nada que enviar: se evita leer todas las tablas cada minuto para nada.
+      if (!vivo || !hayServidor()) return;
       sincronizar().catch((e: unknown) => {
         const esperado = e instanceof Error && (e.name === 'DatabaseClosedError' || e.message === 'Base local sin preparar');
         if (!esperado) console.error('No se pudo sincronizar', e);
