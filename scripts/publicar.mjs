@@ -34,7 +34,8 @@ for (const archivo of ['index.html', 'manifest.webmanifest', 'sw.js']) {
   }
 }
 const args = ['--yes', WRANGLER, 'pages', 'deploy', 'dist', '--project-name', PROYECTO, '--branch', 'main'];
-if (sha) args.push('--commit-hash', sha, '--commit-message', `fep ${sha.slice(0, 7)}`);
+// Sin --commit-message: en Windows npx corre con shell y un mensaje con espacios se parte en varios argumentos.
+if (sha) args.push('--commit-hash', sha);
 // npx es un .cmd en Windows: sólo aquí se usa el shell, con argumentos fijos (nada viene del usuario salvo el sha).
 if (sha && !/^[0-9a-f]{7,40}$/.test(sha)) {
   console.error('✗ sha inválido');
