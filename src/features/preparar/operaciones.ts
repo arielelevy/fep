@@ -127,6 +127,13 @@ export async function registrarGastoArticulo(
   d: { importe: number; categoria_id: string; medio_pago: MedioPago; cliente_id: string | null },
 ): Promise<{ deshacer: Deshacer }> {
   await yo();
+  // QA de la ola 8: la pantalla lo evita con el cerrojo de doble toque, pero la capa de datos también debe impedir un
+  // segundo gasto para el mismo artículo (otra vía, dos pestañas, un reintento).
+  const yaLigado = (await leerPreparaciones())[fecha]?.material.find((x) => igual(x.nombre, item.nombre))?.gasto_id;
+  const gastoPrevio = yaLigado ? await db.movimientos.get(yaLigado) : undefined;
+  if (gastoPrevio && gastoPrevio.eliminado_en == null) {
+    throw new Error('Ese artículo ya tiene su gasto registrado');
+  }
   const g = await crearMovimiento({
     tipo: 'gasto', importe: d.importe, fecha: new Date().toISOString(), categoria_id: d.categoria_id, medio_pago: d.medio_pago,
     cliente_id: d.cliente_id, nota: item.nombre,

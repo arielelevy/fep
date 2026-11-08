@@ -203,9 +203,12 @@ export function fechaEs(dia: string): string {
   return `${d}/${m}/${a}`;
 }
 
+/** Un texto que empieza por = + - @ (o tab/CR) Excel lo ejecuta como fórmula: se antepone ' (inyección CSV, OWASP). */
+const neutralizarFormula = (t: string) => (/^[=+\-@\t\r]/.test(t) ? `'${t}` : t);
+
 function textoCsv(c: Celda): string {
   if (typeof c === 'number') return String(c).replace('.', ',');
-  if (typeof c === 'string') return c;
+  if (typeof c === 'string') return neutralizarFormula(c);
   if ('importe' in c) return centimosADecimal(c.importe, ',');
   return fechaEs(c.fecha);
 }

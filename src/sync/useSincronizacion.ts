@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { db } from '../db/db';
 import { useLive } from '../lib/hooks';
-import { INTERVALO_SYNC_MS, sincronizar } from './sincronizacion';
+import { hayServidor, INTERVALO_SYNC_MS, sincronizar } from './sincronizacion';
 
 /** §14.3: sincroniza al abrir la app, al recuperar la conexión y cada 60 segundos con la app abierta. */
 export function useSincronizacion(): void {
@@ -25,8 +25,9 @@ export function useSincronizacion(): void {
   }, []);
 }
 
-/** Fotos de tickets aún sin subir (§14.5: indicador en el movimiento hasta que se sube). */
+/** Fotos de tickets aún sin subir (§14.5: indicador en el movimiento hasta que se sube). Sin servidor enchufado no hay
+ *  adónde subirlas: «Ticket sin subir» quedaría fijo en todas las fotos, así que no se marca ninguna. */
 export function useFotosSinSubir(): Set<string> {
-  const ids = useLive(async () => (await db.fotos.filter((f) => !f.subida).toArray()).map((f) => f.id));
+  const ids = useLive(async () => (hayServidor() ? (await db.fotos.filter((f) => !f.subida).toArray()).map((f) => f.id) : []));
   return new Set(ids ?? []);
 }

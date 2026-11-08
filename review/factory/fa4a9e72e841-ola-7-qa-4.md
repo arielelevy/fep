@@ -34,12 +34,12 @@ HALLAZGO: `mobile/README.md` → descartado (la carpeta `mobile/` no existe y la
 
 ## Pruebas
 
-PRUEBA: npx tsc -b
-PRUEBA: npx vitest run src/features/preparar
-PRUEBA: npx vitest run -c tests/preparar/vitest.config.ts
-PRUEBA: npx vitest run -c tests/preparacion/vitest.config.ts
-PRUEBA: npx vitest run -c tests/alertas/vitest.config.ts
-PRUEBA: npx vitest run
+PRUEBA: node node_modules/typescript/bin/tsc -b
+PRUEBA: node node_modules/vitest/vitest.mjs run src/features/preparar
+PRUEBA: node node_modules/vitest/vitest.mjs run --config tests/preparar/vitest.config.ts
+PRUEBA: node node_modules/vitest/vitest.mjs run --config tests/preparacion/vitest.config.ts
+PRUEBA: node node_modules/vitest/vitest.mjs run --config tests/alertas/vitest.config.ts
+PRUEBA: node node_modules/vitest/vitest.mjs run
 
 Resultado: tipos sin errores; 13 + 12 + 36 + 14 pruebas focales en verde y la suite de `src/` completa (36 archivos, 391 pruebas) en verde. No ejecuté `npm run verificar` (build y comprobación de la PWA) ni probé nada en un navegador real.
 

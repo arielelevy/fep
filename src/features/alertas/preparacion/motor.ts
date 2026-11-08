@@ -322,9 +322,11 @@ export function calcularAlertasPreparacion(e: EntradaMotor): SalidaMotor {
           etiqueta: `RECOGE LA FURGONETA · ${r.proveedor_nombre.toUpperCase()}`,
           titulo: tit,
           cuerpo:
-            r.fianza_prevista > 0
+            (r.fianza_prevista > 0
               ? `Alquiler ${formatearEuros(r.precio, 'detalle')} y fianza ${formatearEuros(r.fianza_prevista, 'detalle')}.`
-              : `Alquiler ${formatearEuros(r.precio, 'detalle')}.`,
+              : `Alquiler ${formatearEuros(r.precio, 'detalle')}.`) +
+            // QA de la ola 8: pasado el día, el aviso sigue hasta resolverlo; que diga cómo, sin regañar.
+            (dias < 0 ? ' Si no la usaste, anula la reserva en Preparar trabajo.' : ''),
           texto: r.fianza_prevista > 0 ? '¿Ya recogiste la furgoneta? Registra pago y fianza.' : '¿Ya recogiste la furgoneta? Registra el pago.',
           aviso_desde: desde.toISOString(),
           ignora_silencio: true,

@@ -33,6 +33,15 @@ export interface RegistroAvisos {
 
 export const registroVacio = (): RegistroAvisos => ({ claves: {}, enviados: [] });
 
+/** Días que se recuerda una clave avisada. Ninguna alerta sigue activa tanto tiempo (clima: 14 días vista;
+ *  preparación: el día del trabajo), así que podar más viejas no vuelve a avisar de nada vigente. */
+export const DIAS_CLAVES_AVISADAS = 90;
+
+export function podarClaves(claves: Record<string, string>, ahora: Date): Record<string, string> {
+  const limite = ahora.getTime() - DIAS_CLAVES_AVISADAS * 86_400_000;
+  return Object.fromEntries(Object.entries(claves).filter(([, iso]) => !(Date.parse(iso) < limite)));
+}
+
 export async function leerRegistroAvisos(): Promise<RegistroAvisos> {
   return { ...registroVacio(), ...(await leerAjuste<Partial<RegistroAvisos>>(CLAVE_AVISOS_SIMULADOS, {})) };
 }
@@ -47,6 +56,7 @@ async function anotarAvisos(avisos: { aviso: Omit<Notificacion, 'marcar'>; marca
       r.enviados.unshift({ ...aviso, enviado_en: iso });
     }
     r.enviados = r.enviados.slice(0, MAXIMO_REGISTRO);
+    r.claves = podarClaves(r.claves, ahora);
     await guardarAjuste(CLAVE_AVISOS_SIMULADOS, r);
   });
 }

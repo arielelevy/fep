@@ -20,8 +20,11 @@ export const INTERVALO_SYNC_MS = 60_000;
 export const TABLAS_SYNC = ['movimientos', 'categorias', 'usuarios', 'clientes', 'deudas', 'visitas', 'series'] as const;
 export type TablaSync = (typeof TABLAS_SYNC)[number];
 
-/** Ajustes propios de este móvil: no se envían. */
-export const AJUSTES_LOCALES = new Set(['usuario_actual', 'borrador_registro', CLAVE_SYNC, 'avisos_simulados']);
+/** Ajustes propios de este móvil: no se envían. El último medio de pago y la bienvenida son de quien usa ese móvil. */
+export const AJUSTES_LOCALES = new Set([
+  'usuario_actual', 'borrador_registro', CLAVE_SYNC, 'avisos_simulados',
+  'ultimo_medio_pago', 'pasos_bienvenida', 'saldo_inicial_hecho',
+]);
 
 export interface Cambio {
   tabla: TablaSync | 'ajustes';
@@ -52,6 +55,9 @@ let servidor: ServidorSync | null = null;
 export function configurarServidor(s: ServidorSync | null): void {
   servidor = s;
 }
+
+/** Hay un servidor enchufado: recién entonces tiene sentido avisar de lo que falta subir. */
+export const hayServidor = (): boolean => servidor !== null;
 
 export async function leerEstadoSync(): Promise<EstadoSync> {
   return { ...estadoVacio(), ...(await leerAjuste<Partial<EstadoSync>>(CLAVE_SYNC, {})) };
