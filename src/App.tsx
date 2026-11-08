@@ -12,7 +12,7 @@ import { claveDia } from './lib/fechas';
 import { ClienteFicha } from './screens/ClienteFicha';
 import { ClienteForm } from './screens/ClienteForm';
 import { Clientes } from './screens/Clientes';
-import { GuiaInstalacion, debeMostrarGuia } from './screens/GuiaInstalacion';
+import { GuiaInstalacion, debeMostrarGuia, olvidarEnlaceGuia } from './screens/GuiaInstalacion';
 import { HojaCobro } from './screens/HojaCobro';
 import { Hoy, type DestinoHoy } from './screens/Hoy';
 import { Agenda } from './screens/Agenda';
@@ -64,7 +64,15 @@ const NOMBRES: Record<Pestana, string> = { hoy: 'Hoy', movimientos: 'Movimientos
 
 export function App() {
   const [guia, setGuia] = useState(debeMostrarGuia);
-  if (guia) return <GuiaInstalacion onSeguir={() => setGuia(false)} />;
+  if (guia)
+    return (
+      <GuiaInstalacion
+        onSeguir={() => {
+          olvidarEnlaceGuia();
+          setGuia(false);
+        }}
+      />
+    );
   return (
     <DatosProvider>
       <DeshacerProvider>

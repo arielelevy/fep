@@ -27,8 +27,22 @@ export function estaInstalada(): boolean {
   return standalone || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
+/** Enlace directo a la guía: `/?ir=instalar` (para mandarle a Felipe). La muestra aunque ya se haya visto. */
+export function pideGuiaPorEnlace(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('ir') === 'instalar';
+}
+
+/** Quita `?ir=instalar` de la dirección para que recargar no vuelva a abrir la guía. */
+export function olvidarEnlaceGuia(): void {
+  if (!pideGuiaPorEnlace()) return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('ir');
+  window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
+
 export function debeMostrarGuia(): boolean {
-  return !estaInstalada() && local.leer(CLAVE_GUIA) !== '1';
+  return pideGuiaPorEnlace() || (!estaInstalada() && local.leer(CLAVE_GUIA) !== '1');
 }
 
 export function GuiaInstalacion({ onSeguir }: { onSeguir: () => void }) {
